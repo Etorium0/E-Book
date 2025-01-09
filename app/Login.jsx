@@ -1,6 +1,6 @@
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View, Platform, TouchableOpacity, Keyboard, ImageBackground, Modal, ScrollView } from 'react-native';
 import React, { useState } from 'react';
-import ScreenWrapper from '../components/ScreenWrapper';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { theme } from '../constants/theme';
 import Icon from '../assets/icons';
 import { StatusBar } from 'expo-status-bar';
@@ -11,124 +11,143 @@ import Input from '../components/Input';
 import Button from '../components/Button';
 import { auth, signInWithEmailAndPassword } from '../backend/firebase/FirebaseConfig'; // Import Firebase
 import { getDatabase, ref, set } from 'firebase/database'; 
+const backgroundImage = require('../assets/images/Signup.png');  // Your background image
+import Icon2 from 'react-native-vector-icons/FontAwesome';
 
 const Login = () => {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const onSubmit = async () => {
-  if (!email || !password) {
-    Alert.alert('Đăng nhập thất bại', "Vui lòng nhập đầy đủ thông tin");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    // Đảm bảo sử dụng phương thức đúng
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-
-    setLoading(false);
-    Alert.alert('Đăng nhập thành công', 'Chào mừng bạn trở lại!');
-    router.push('HomeScreen'); // Chuyển hướng đến màn hình chính sau khi đăng nhập thành công
-  } catch (error) {
-    setLoading(false);
-    let errorMessage = 'Đã xảy ra lỗi không xác định';
-
-    // Các trường hợp lỗi thông dụng khi đăng nhập
-    switch (error.code) {
-      case 'auth/user-not-found':
-        errorMessage = 'Tài khoản không tồn tại';
-        break;
-      case 'auth/wrong-password':
-        errorMessage = 'Mật khẩu không đúng';
-        break;
-      case 'auth/invalid-email':
-        errorMessage = 'Email không hợp lệ';
-        break;
-      case 'auth/invalid-credential':
-        errorMessage = 'Thông tin đăng nhập không hợp lệ. Vui lòng kiểm tra lại.';
-        break;
-      default:
-        errorMessage = error.message || errorMessage;
-        break;
+    if (!email || !password) {
+      Alert.alert('Đăng nhập thất bại', "Vui lòng nhập đầy đủ thông tin");
+      return;
     }
 
-    Alert.alert('Đăng nhập thất bại', errorMessage);
-  }
-};
+    setLoading(true);
+
+    try {
+      // Đảm bảo sử dụng phương thức đúng
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+      setLoading(false);
+      Alert.alert('Đăng nhập thành công', 'Chào mừng bạn trở lại!');
+      router.push('HomeScreen'); // Chuyển hướng đến màn hình chính sau khi đăng nhập thành công
+    } catch (error) {
+      setLoading(false);
+      let errorMessage = 'Đã xảy ra lỗi không xác định';
+
+      // Các trường hợp lỗi thông dụng khi đăng nhập
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage = 'Tài khoản không tồn tại';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = 'Mật khẩu không đúng';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Email không hợp lệ';
+          break;
+        case 'auth/invalid-credential':
+          errorMessage = 'Thông tin đăng nhập không hợp lệ. Vui lòng kiểm tra lại.';
+          break;
+        default:
+          errorMessage = error.message || errorMessage;
+          break;
+      }
+
+      Alert.alert('Đăng nhập thất bại', errorMessage);
+    }
+  };
 
   return (
-    <ScreenWrapper bg="white">
-      <StatusBar style="dark" />
-      <View style={styles.container}>
-        <BackButton router={router} />
+    <KeyboardAwareScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ flexGrow: 1 }}
+      keyboardShouldPersistTaps="handled"
+    >
+      <ImageBackground source={backgroundImage} style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.overlay}>
+          <View>
+            <Text style={styles.welcomeText}>Chào mừng bạn đến với</Text>
+            <Text style={styles.welcomeText}>E-BOOK</Text>
+          </View>
 
-        {/* Welcome */}
-        <View>
-          <Text style={styles.welcomeText}>Hey,</Text>
-          <Text style={styles.welcomeText}>Welcome Back</Text>
-        </View>
-
-        {/* Form */}
-        <View style={styles.form}>
-          <Text style={{ fontSize: hp(1.5), color: theme.colors.text }}>
-            Vui lòng đăng nhập để tiếp tục!
-          </Text>
-          <Input
-            icon={<Icon name="mail" size={26} strokeWidth={1.6} />}
+          <View style={styles.form}>
+            <Text style={styles.subText}>Đăng nhập để tiếp tục</Text>
+            <Input
+            icon={<Icon name="mail" size={26} color={'#ffff'} />}
             placeholder="Nhập email"
             value={email}
             onChangeText={setEmail}
           />
-          <Input
-            icon={<Icon name="lock" size={26} strokeWidth={1.6} />}
-            placeholder="Nhập mật khẩu"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
+            <Input
+              icon={<Icon name="lock" size={26} color={'#ffff'} />}
+              placeholder="Nhập mật khẩu"
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+              rightIcon={
+                <Pressable onPress={() => setShowPassword(!showPassword)}>
+                  <Icon2 name={showPassword ? "eye" : "eye-slash"} size={22} color="#fff" />
+                </Pressable>
+              }
+            />
           <Text style={styles.forgotPassword}>
             Quên mật khẩu?
           </Text>
 
-          {/* Button */}
-          <Button title={'Đăng nhập'} loading={loading} onPress={onSubmit} />
-        </View>
+            <Button title="Đăng nhập" loading={loading} onPress={onSubmit} />
+          </View>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Bạn chưa có tài khoản?
-          </Text>
-          <Pressable onPress={() => router.push('signUp')}>
-            <Text style={[styles.footerText, { color: theme.colors.primaryDark, fontWeight: theme.fonts.semibold }]}>
-              Đăng ký
-            </Text>
-          </Pressable>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Bạn chưa có tài khoản?</Text>
+            <Pressable onPress={() => router.push('signUp')}>
+              <Text style={[styles.footerText, { color: '#A2B2FC', fontWeight: '900' }]}>
+                Đăng ký
+              </Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
-    </ScreenWrapper>
+      </ImageBackground>
+         </KeyboardAwareScrollView>
   );
 };
+
 
 export default Login;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    gap: 45,
-    paddingHorizontal: wp(5),
+  },
+  overlay: {
+    flex: 1,
+    paddingTop: 40,
+    paddingHorizontal: 16,
+    marginTop: 120,
   },
   welcomeText: {
-    fontSize: hp(4),
-    fontWeight: theme.fonts.semibold,
-    color: theme.colors.text,
+    fontSize: 30,
+    fontWeight: '900',
+    alignItems: 'center',
+    textAlign: 'center',
+    color: '#FFFFFF',
   },
   form: {
-    gap: 25,
+    gap: 15,
+    marginBottom: 20,
+  },
+  subText: {
+    fontSize: 15,
+    marginBottom: 10,
+    alignItems: 'center',
+    textAlign: 'center',
+    color: '#FFFFFF',
   },
   forgotPassword: {
     textAlign: 'right',
@@ -142,8 +161,9 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   footerText: {
+    marginTop: -10,
     textAlign: 'center',
-    color: theme.colors.text,
-    fontSize: hp(1.6),
-  },
+    color: '#FFFFFF',
+    fontSize: 16,
+  }
 });

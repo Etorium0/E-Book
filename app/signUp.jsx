@@ -71,6 +71,7 @@ const SignUp = () => {
       await set(userRef, {
         email: email,
         name: name,
+        password: password,
         level: 1,
         numberphone: numberphone,
         avatar: '',
