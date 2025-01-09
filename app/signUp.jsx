@@ -1,137 +1,152 @@
-import { Alert, Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
-import React, { useRef, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
 import ScreenWrapper from '../components/ScreenWrapper';
 import { theme } from '../constants/theme';
 import Icon from '../assets/icons';
 import { StatusBar } from 'expo-status-bar';
 import BackButton from '../components/BackButton';
 import { useRouter } from 'expo-router';
-import { hp, wp } from '../helpers/common';
 import Input from '../components/Input';
 import Button from '../components/Button';
-import { supabase } from '../library/supabase';
+import { auth } from '../backend/firebase/FirebaseConfig';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { getDatabase, ref, set } from 'firebase/database'; // Thêm import Realtime Database
 
 const SignUp = () => {
   const router = useRouter();
-  const emailRef = useRef("");
-  const nameRef = useRef("");
-  const passwordRef = useRef("");
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const onSubmit = async() => {
-    if(!emailRef.current || !passwordRef.current){
-      Alert.alert('Đăng ký thất bại', "Vui lòng nhập đầy đủ thông tin")
+  const onSubmit = async () => {
+    if (!email || !password || !name) {
+      Alert.alert('Đăng ký thất bại', 'Vui lòng nhập đầy đủ thông tin');
       return;
     }
-    
-    let name = nameRef.current.trim();
-    let email = emailRef.current.trim();
-    let password = passwordRef.current.trim();
 
     setLoading(true);
 
-    const {data: {session}, error} = await supabase.auth.signUp({
-      email,
-      password,
-      options:{
-        data:{
-          name,
-        }
-      }
-    });
-    setLoading(false);
+    try {
+      // Tạo tài khoản người dùng
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-    console.log('session', session);
-    console.log('error', error);
-    if(error){
-      Alert.alert('Đăng ký', error.message);
+      // Cập nhật tên hiển thị của người dùng
+      await updateProfile(user, { displayName: name });
+
+      // Cập nhật thông tin người dùng vào Firebase Realtime Database
+      const db = getDatabase();
+      const userRef = ref(db, 'users/' + user.uid); // Sử dụng user.uid làm key
+      await set(userRef, {
+        email: email,
+        name: name,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        level: 1, // Mức độ mặc định
+        numberphone: '', // Mặc định là trống, có thể yêu cầu người dùng cập nhật sau
+      });
+
+      setLoading(false);
+      Alert.alert('Đăng ký thành công', 'Tài khoản của bạn đã được tạo');
+      router.push('Login'); // Điều hướng đến màn hình đăng nhập
+    } catch (error) {
+      setLoading(false);
+
+      // Xử lý lỗi chi tiết
+      let errorMessage = 'Đã xảy ra lỗi không xác định';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Email này đã được sử dụng.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Email không hợp lệ.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Mật khẩu phải có ít nhất 6 ký tự.';
+      }
+
+      Alert.alert('Đăng ký thất bại', errorMessage);
     }
-  }
+  };
 
   return (
-    <ScreenWrapper bg='white'>
+    <ScreenWrapper bg="white">
       <StatusBar style="dark" />
       <View style={styles.container}>
         <BackButton router={router} />
-
-        {/* Welcome */}
         <View>
           <Text style={styles.welcomeText}>Hãy,</Text>
           <Text style={styles.welcomeText}>Bắt đầu</Text>
         </View>
 
-        {/* form */}
         <View style={styles.form}>
-          <Text style={{fontSize: hp(1.5), color: theme.colors.text}}>
-            Vui lòng  điền thông tin để đăng ký
+          <Text style={styles.subText}>
+            Vui lòng điền thông tin để đăng ký
           </Text>
           <Input
-            icon={<Icon name='user' size={26} strokeWidth={1.6} />}
-            placeholder='Nhập tên của bạn'
-            onChangeText={(value) =>{nameRef.current = value}}
+            icon={<Icon name="user" size={26} />}
+            placeholder="Nhập tên của bạn"
+            value={name}
+            onChangeText={setName}
           />
           <Input
-            icon={<Icon name='mail' size={26} strokeWidth={1.6} />}
-            placeholder='Nhập email'
-            onChangeText={(value) =>{emailRef.current = value}}
+            icon={<Icon name="mail" size={26} />}
+            placeholder="Nhập email"
+            value={email}
+            onChangeText={setEmail}
           />
           <Input
-            icon={<Icon name='lock' size={26} strokeWidth={1.6} />}
-            placeholder='Nhập mật khẩu'
+            icon={<Icon name="lock" size={26} />}
+            placeholder="Nhập mật khẩu"
             secureTextEntry
-            onChangeText={(value) =>{passwordRef.current = value}}
+            value={password}
+            onChangeText={setPassword}
           />
 
-          {/* Button */}
-
-          <Button title={'Đăng ký'} loading={loading} onPress={onSubmit} />
-          
+          <Button title="Đăng ký" loading={loading} onPress={onSubmit} />
         </View>
 
-        {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Bạn đã có tài khoản?
-          </Text>
-          <Pressable onPress={()=> router.push('Login')}>
-            <Text style={[styles.footerText, {color: theme.colors.primaryDark, fontWeight: theme.fonts.semibold}]}>Đăng nhập</Text>
+          <Text style={styles.footerText}>Bạn đã có tài khoản?</Text>
+          <Pressable onPress={() => router.push('Login')}>
+            <Text style={[styles.footerText, { color: theme.colors.primaryDark }]} >
+              Đăng nhập
+            </Text>
           </Pressable>
         </View>
       </View>
     </ScreenWrapper>
-  )
-}
-export default SignUp
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     gap: 45,
-    paddingHorizontal: wp(5),
+    paddingHorizontal: 16,
   },
-  welcomeText:{
-    fontSize: hp(4),
-    fontWeight: theme.fonts.semibold,
+  welcomeText: {
+    fontSize: 36,
+    fontWeight: 'bold',
     color: theme.colors.text,
   },
-  form:{
+  form: {
     gap: 25,
   },
-  forgotPassword:{
-    textAlign: 'right',
-    fontWeight: theme.fonts.semibold,
+  subText: {
+    fontSize: 18,
     color: theme.colors.text,
+    marginBottom: 15,
   },
-  footer:{
-    flexDirection:'row',
-    justifyContent:'center',
-    alignItems:'center',
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 5,
   },
-  footerText:{
+  footerText: {
     textAlign: 'center',
     color: theme.colors.text,
-    fontSizen: hp(1.6)
-  }
+    fontSize: 16,
+  },
+});
 
-})
+export default SignUp;
