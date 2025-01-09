@@ -1,4 +1,3 @@
-// ReadBookScreen.jsx
 import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet, Alert } from 'react-native';
 import SummaryModal from '../components/SummaryModal';
 import React, { useState, useEffect, useRef } from 'react';
