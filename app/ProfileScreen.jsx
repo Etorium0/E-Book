@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -9,26 +9,70 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronRightIcon } from 'react-native-heroicons/outline';
-import { useRouter } from 'expo-router';  // Add this import
+import { useRouter } from 'expo-router';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getDatabase, ref, get } from 'firebase/database';
 
 const ProfileScreen = () => {
-  const router = useRouter();  // Add this
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+
+  // Lấy thông tin người dùng từ Firebase Authentication
+   useEffect(() => {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+
+    if (currentUser) {
+      const userId = currentUser.uid;
+
+      // Lấy dữ liệu người dùng từ Realtime Database
+      const db = getDatabase();
+      const userRef = ref(db, `users/${userId}`);
+
+      get(userRef)
+        .then((snapshot) => {
+          if (snapshot.exists()) {
+            setUser(snapshot.val()); // Lưu thông tin người dùng, bao gồm avatarUrl
+          } else {
+            setUser(null);
+          }
+        })
+        .catch((error) => {
+          console.error('Lỗi khi lấy dữ liệu người dùng:', error);
+        });
+    } else {
+      console.log('Không có người dùng đăng nhập');
+    }
+  }, []);
+
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
         {/* Hồ sơ cá nhân */}
-        <TouchableOpacity style={styles.profileSection} onPress={() => router.push('/AccountInfoScreen')} >
+        <TouchableOpacity 
+          style={styles.profileSection} 
+          onPress={() => router.push('/AccountInfoScreen')}
+        >
           <View style={styles.profileInfo}>
             <Image 
-              source={require('../assets/images/icon.png')}
+              source={
+                user && user.avatar // Lấy avatar từ Realtime Database
+                  ? { uri: user.avatar } // Sử dụng link avatar từ Realtime Database
+                  : require('../assets/images/icon.png') // Ảnh mặc định
+              }
               style={styles.avatar}
             />
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>Trần Thị Mộng Trúc Ngân</Text>
-              <Text style={styles.userStatus}>Xem thông tin cá nhân</Text>
+              <Text style={styles.userName}>
+                {user ? user.name || "Người dùng" : "Đăng nhập để xem thông tin"}
+              </Text>
+              <Text style={styles.userStatus}>
+                {user ? user.email : "Chưa đăng nhập"}
+              </Text>
             </View>
           </View>
-          <ChevronRightIcon size={20} color="#666"/>
+          <ChevronRightIcon size={20} color="#666" />
         </TouchableOpacity>
 
         {/* Lịch sử đọc sách */}
@@ -148,7 +192,7 @@ const styles = StyleSheet.create({
   menuText: {
     color: 'white',
     fontSize: 16,
-  }
+  },
 });
 
 export default ProfileScreen;
