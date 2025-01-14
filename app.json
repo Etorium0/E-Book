@@ -29,6 +29,7 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "expo-router",
       "expo-font",
       "@config-plugins/react-native-blob-util",
       [

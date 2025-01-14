@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -20,20 +20,110 @@ import NetInfo from '@react-native-community/netinfo';
 import { generateSummary } from '../services/geminiService';
 
 const BUTTON_SIZE = 56;
+const SPRING_CONFIG = {
+  damping: 10,
+  stiffness: 100,
+  mass: 1,
+};
+
+// Separate Modal component for better organization
+const SummaryModal = memo(({ visible, onClose, summary, isLoading }) => (
+  <Modal
+    animationType="slide"
+    transparent={true}
+    visible={visible}
+    onRequestClose={onClose}
+  >
+    <View style={styles.modalContainer}>
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>AI Summary</Text>
+        
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#3B82F6" />
+            <Text style={styles.loadingText}>Đang tạo tóm tắt...</Text>
+          </View>
+        ) : (
+          <Text style={[
+            styles.summaryText,
+            summary.includes('Lỗi') && styles.errorText
+          ]}>
+            {summary || 'Không có nội dung'}
+          </Text>
+        )}
+
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={onClose}
+        >
+          <Text style={styles.closeButtonText}>Đóng</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+));
+
+// Separate Menu Button component
+const MenuButton = memo(({ icon: Icon, onPress }) => (
+  <TouchableOpacity
+    style={styles.menuButton}
+    onPress={onPress}
+    activeOpacity={0.8}
+  >
+    <Icon size={24} color="#FFFFFF" />
+  </TouchableOpacity>
+));
 
 const FloatingActionButton = ({ onAudioBook, currentText = "Đây là văn bản mẫu" }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [summary, setSummary] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const rotation = useSharedValue(0);
 
-  const toggleMenu = () => {
-    setIsExpanded(!isExpanded);
-    rotation.value = withSpring(isExpanded ? 0 : 45);
-  };
+  const toggleMenu = useCallback(() => {
+    setIsExpanded(prev => !prev);
+    rotation.value = withSpring(isExpanded ? 0 : 45, SPRING_CONFIG);
+  }, [isExpanded, rotation]);
+
+  const checkNetworkConnection = useCallback(async () => {
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      throw new Error('Vui lòng kiểm tra kết nối mạng');
+    }
+  }, []);
+
+  const handleAISummary = useCallback(async () => {
+    try {
+      await checkNetworkConnection();
+      setModalVisible(true);
+      setIsLoading(true);
+      setSummary('');
+
+      const result = await generateSummary(currentText);
+      setSummary(result);
+
+    } catch (error) {
+      const errorMessage = error.response 
+        ? `Lỗi server: ${error.response.status}`
+        : error.request 
+          ? 'Không thể kết nối tới server'
+          : error.message;
+
+      Alert.alert('Lỗi', errorMessage);
+      console.error('Error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentText]);
+
+  const closeModal = useCallback(() => {
+    setModalVisible(false);
+    setSummary('');
+  }, []);
 
   const gestureHandler = useAnimatedGestureHandler({
     onStart: (_, context) => {
@@ -45,45 +135,10 @@ const FloatingActionButton = ({ onAudioBook, currentText = "Đây là văn bản
       translateY.value = context.startY + event.translationY;
     },
     onEnd: () => {
-      translateX.value = withSpring(translateX.value);
-      translateY.value = withSpring(translateY.value);
+      translateX.value = withSpring(translateX.value, SPRING_CONFIG);
+      translateY.value = withSpring(translateY.value, SPRING_CONFIG);
     },
   });
-
-  const handleAISummary = async () => {
-    try {
-      // Kiểm tra kết nối mạng
-      const netInfo = await NetInfo.fetch();
-      if (!netInfo.isConnected) {
-        Alert.alert('Lỗi', 'Vui lòng kiểm tra kết nối mạng');
-        return;
-      }
-
-      setModalVisible(true);
-      setIsLoading(true);
-      setSummary('');
-
-      const result = await generateSummary(currentText);
-      setSummary(result);
-
-    } catch (error) {
-      let errorMessage = 'Đã có lỗi xảy ra';
-      
-      if (error.response) {
-        errorMessage = `Lỗi server: ${error.response.status}`;
-        console.error('API Error:', error.response.data);
-      } else if (error.request) {
-        errorMessage = 'Không thể kết nối tới server';
-      } else {
-        errorMessage = error.message;
-      }
-
-      setSummary(errorMessage);
-      console.error('Error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const animatedStyles = useAnimatedStyle(() => ({
     transform: [
@@ -114,65 +169,23 @@ const FloatingActionButton = ({ onAudioBook, currentText = "Đây là văn bản
 
       {isExpanded && (
         <View style={styles.menuContainer}>
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={onAudioBook}
-            activeOpacity={0.8}
-          >
-            <SpeakerWaveIcon size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={handleAISummary}
-            activeOpacity={0.8}
-          >
-            <SparklesIcon size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          <MenuButton icon={SpeakerWaveIcon} onPress={onAudioBook} />
+          <MenuButton icon={SparklesIcon} onPress={handleAISummary} />
         </View>
       )}
 
-      <Modal
-        animationType="slide"
-        transparent={true}
+      <SummaryModal
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>AI Summary</Text>
-            
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#3B82F6" />
-                <Text style={styles.loadingText}>Đang tạo tóm tắt...</Text>
-              </View>
-            ) : (
-              <Text style={[
-                styles.summaryText,
-                summary.includes('Lỗi') && styles.errorText
-              ]}>
-                {summary || 'Không có nội dung'}
-              </Text>
-            )}
-
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => {
-                setModalVisible(false);
-                setSummary('');
-              }}
-            >
-              <Text style={styles.closeButtonText}>Đóng</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        onClose={closeModal}
+        summary={summary}
+        isLoading={isLoading}
+      />
     </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
+  // ... (styles remain the same as in your original code)
   floatingButtonContainer: {
     position: 'absolute',
     right: 20,
@@ -218,10 +231,15 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   modalContainer: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 9999, // Thêm z-index cao
   },
   modalContent: {
     width: '90%',
@@ -277,4 +295,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FloatingActionButton;
+export default memo(FloatingActionButton);

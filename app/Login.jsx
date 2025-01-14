@@ -35,7 +35,7 @@ const Login = () => {
 
       setLoading(false);
       Alert.alert('Đăng nhập thành công', 'Chào mừng bạn trở lại!');
-      router.push('HomeScreen'); // Chuyển hướng đến màn hình chính sau khi đăng nhập thành công
+      router.push('HomeScreens'); // Chuyển hướng đến màn hình chính sau khi đăng nhập thành công
     } catch (error) {
       setLoading(false);
       let errorMessage = 'Đã xảy ra lỗi không xác định';

@@ -1,59 +1,130 @@
-// TrendingBooks.jsx
 import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions } from 'react-native';
 import React from 'react';
 import Carousel from 'react-native-reanimated-carousel';
 import { router } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { 
+  useAnimatedStyle, 
+  interpolate, 
+  useSharedValue,
+  withSpring 
+} from 'react-native-reanimated';
 
-const { width } = Dimensions.get('window');
-const adjustedWidth = width * 0.6;
-const height = adjustedWidth * 1.6;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_WIDTH = SCREEN_WIDTH * 0.6;
+const CARD_HEIGHT = CARD_WIDTH * 1.6;
 
-const MovieCard = ({ item, handleClick }) => {
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+
+const MovieCard = ({ item, handleClick, index, animationValue }) => {
   if (!item) return null;
-  
+
+  const cardStyle = useAnimatedStyle(() => {
+    const scale = interpolate(
+      animationValue.value,
+      [
+        (index - 1) * CARD_WIDTH,
+        index * CARD_WIDTH,
+        (index + 1) * CARD_WIDTH,
+      ],
+      [0.9, 1, 0.9]
+    );
+
+    const opacity = interpolate(
+      animationValue.value,
+      [
+        (index - 1) * CARD_WIDTH,
+        index * CARD_WIDTH,
+        (index + 1) * CARD_WIDTH,
+      ],
+      [0.75, 1, 0.75]
+    );
+
+    return {
+      transform: [{ scale }],
+      opacity,
+    };
+  });
+
   return (
-    <TouchableOpacity onPress={()=> handleClick(item)} style={styles.cardContainer}>
+    <AnimatedTouchable 
+      onPress={() => handleClick(item)} 
+      style={[styles.cardContainer, cardStyle]}
+    >
       <Image
-        source={require('../assets/images/books/3.png')}
+        source={item.imageUrl ? { uri: item.imageUrl } : require('../assets/images/books/3.png')}
         style={styles.image}
         resizeMode="cover"
       />
-    </TouchableOpacity>
+      <View style={styles.overlay}>
+        <View style={styles.textContainer}>
+          <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+          <Text style={styles.author} numberOfLines={1}>{item.author}</Text>
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Lượt xem</Text>
+              <Text style={styles.statValue}>{item.view || 0}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Đánh giá</Text>
+              <Text style={styles.statValue}>{item.rating || 0}⭐</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </AnimatedTouchable>
   );
 };
 
-const TrendingBooks = ({ data }) => {
-  const handlePress = (item) => {
-    router.push({
-      pathname: '/BookScreen',
-      params: {
-        id: item.id,
-        title: item.title,
-        author: item.author,
-        description: item.description
-      }
-    });
-  };
+const TrendingBooks = ({ data, handleClick }) => {
+  const animationValue = useSharedValue(0);
 
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.headerText}>No Trending Books Available</Text>
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerText}>Trending</Text>
+          <TouchableOpacity 
+            style={styles.viewAllButton}
+            onPress={() => router.push('/TrendingScreen')}
+          >
+            <Text style={styles.viewAllText}>Xem tất cả</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Không có sách trending</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.headerText}>Trending</Text>
+    <GestureHandlerRootView style={styles.container}>
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerText}>Trending</Text>
+        <TouchableOpacity 
+          style={styles.viewAllButton}
+          onPress={() => router.push('/TrendingScreen')}
+        >
+          <Text style={styles.viewAllText}>Xem tất cả</Text>
+        </TouchableOpacity>
+      </View>
       <Carousel
         loop
-        width={adjustedWidth}
-        height={height}
+        width={CARD_WIDTH}
+        height={CARD_HEIGHT}
         data={data}
         scrollAnimationDuration={1000}
-        renderItem={({ item }) => (
-          <MovieCard item={item} handleClick={() => handlePress(item)} />
+        onProgressChange={(_, absoluteProgress) => {
+          animationValue.value = withSpring(absoluteProgress * CARD_WIDTH);
+        }}
+        renderItem={({ item, index }) => (
+          <MovieCard 
+            item={item} 
+            handleClick={handleClick} 
+            index={index}
+            animationValue={animationValue}
+          />
         )}
         mode="parallax"
         modeConfig={{
@@ -61,40 +132,118 @@ const TrendingBooks = ({ data }) => {
           parallaxScrollingOffset: 30,
         }}
         style={styles.carousel}
+        panGestureHandlerProps={{
+          activeOffsetX: [-10, 10],
+          failOffsetY: [-5, 5],
+        }}
+        snapEnabled={true}
+        defaultIndex={0}
       />
-    </View>
+    </GestureHandlerRootView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 0,
+    paddingVertical: 16,
     backgroundColor: 'transparent',
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 10,
   },
   headerText: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 10,
     color: 'white',
   },
-  cardContainer: {
-    flex: 1,
+  viewAllButton: {
+    padding: 8,
+  },
+  viewAllText: {
+    color: '#eab308',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    height: CARD_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 5,
-    borderRadius: 10,
+  },
+  emptyText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+  },
+  cardContainer: {
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#1e1e1e',
     elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   image: {
     width: '100%',
     height: '100%',
-    borderRadius: 10,
+    borderRadius: 12,
+  },
+  overlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 12,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+  },
+  textContainer: {
+    gap: 6,
+  },
+  title: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    lineHeight: 24,
+  },
+  author: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statLabel: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  statValue: {
+    color: '#D1D5DB',
+    fontSize: 14,
+    fontWeight: '600',
   },
   carousel: {
     width: '100%',
-    height: height,
+    height: CARD_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
   }

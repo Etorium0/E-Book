@@ -8,6 +8,7 @@ import { BookmarkIcon as BookmarkSolid } from 'react-native-heroicons/solid';
 import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { bookService } from '../backend/services/bookManagement';
 
 // Components
 import BackButton from '../components/BackButton';
@@ -30,6 +31,7 @@ export default function ReadBookScreen() {
   const scrollViewRef = useRef(null);
   const [totalPages, setTotalPages] = useState(1);
   const [showSummary, setShowSummary] = useState(false);
+  const [error, setError] = useState(null);
 
   // Settings states
   const [fontSize, setFontSize] = useState(16);
@@ -45,29 +47,47 @@ export default function ReadBookScreen() {
   useEffect(() => {
     fetchBookContent();
     loadBookmark();
+    updateReadingProgress();
   }, [id]);
 
-  const fetchBookContent = async () => {
+const fetchBookContent = async () => {
+  try {
+    setLoading(true);
+    const result = await bookService.getBooks();
+    
+    if (result.success && result.data[id]) {
+      const bookData = result.data[id];
+      // Đảm bảo chapters luôn là một mảng
+      const chapters = Array.isArray(bookData.chapters) ? bookData.chapters : [{
+        id: 1,
+        title: "Chương 1",
+        content: bookData.content || "Không có nội dung"
+      }];
+      
+      setBookContent({
+        title: bookData.title,
+        chapters: chapters
+      });
+    } else {
+      setError("Không thể tải nội dung sách");
+    }
+  } catch (error) {
+    console.error('Error fetching book content:', error);
+    setError("Đã xảy ra lỗi khi tải nội dung sách");
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const updateReadingProgress = async () => {
     try {
-      // Giả lập API call
-      setTimeout(() => {
-        setBookContent({
-          title: "Tuyển tập thơ Lưu Quang Vũ",
-          chapters: [
-            {
-              id: 1,
-              title: "Chương 1: Tuổi trẻ",
-              content: `Tuổi hai mươi tôi đi giữa thành phố này
-              Đường phố dài hun hút nỗi nhớ xanh...`
-            },
-            // Thêm nội dung chapters khác
-          ]
-        });
-        setLoading(false);
-      }, 1000);
+      // Cập nhật progress reading vào Firebase
+      await bookService.updateBook(id, {
+        lastRead: Date.now(),
+        currentPage: currentPage,
+      });
     } catch (error) {
-      console.error('Error fetching book content:', error);
-      setLoading(false);
+      console.error('Error updating reading progress:', error);
     }
   };
 
@@ -81,22 +101,45 @@ export default function ReadBookScreen() {
     
     const current = Math.ceil((offset + height) / height);
     setCurrentPage(current);
+
+    // Debounce cập nhật progress
+    const timeoutId = setTimeout(() => {
+      updateReadingProgress();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
   };
 
   const toggleBookmark = async () => {
-    setIsBookmarked(!isBookmarked);
     try {
-      if (!isBookmarked) {
-        await saveBookmark({
-          bookId: id,
-          page: currentPage,
-          scrollPosition: scrollViewRef.current?.scrollOffset
+      const newBookmarkState = !isBookmarked;
+      setIsBookmarked(newBookmarkState);
+
+      const bookmarkData = {
+        bookId: id,
+        page: currentPage,
+        scrollPosition: scrollViewRef.current?.scrollOffset,
+        timestamp: Date.now()
+      };
+
+      if (newBookmarkState) {
+        await saveBookmark(bookmarkData);
+        // Cập nhật trạng thái bookmark lên Firebase
+        await bookService.updateBook(id, {
+          bookmarked: true,
+          bookmarkData
         });
       } else {
         await AsyncStorage.removeItem(`bookmark_${id}`);
+        // Xóa bookmark trên Firebase
+        await bookService.updateBook(id, {
+          bookmarked: false,
+          bookmarkData: null
+        });
       }
     } catch (error) {
       console.error('Error toggling bookmark:', error);
+      Alert.alert("Lỗi", "Không thể cập nhật bookmark");
     }
   };
 
@@ -108,19 +151,31 @@ export default function ReadBookScreen() {
       );
     } catch (error) {
       console.error('Error saving bookmark:', error);
+      throw error;
     }
   };
 
   const loadBookmark = async () => {
     try {
-      const bookmark = await AsyncStorage.getItem(`bookmark_${id}`);
-      if (bookmark) {
-        const bookmarkData = JSON.parse(bookmark);
+      // Kiểm tra bookmark local
+      const localBookmark = await AsyncStorage.getItem(`bookmark_${id}`);
+      
+      // Lấy thông tin sách từ Firebase để kiểm tra bookmark
+      const bookResult = await bookService.getBooks();
+      const bookData = bookResult.success ? bookResult.data[id] : null;
+      
+      if (bookData?.bookmarked || localBookmark) {
         setIsBookmarked(true);
-        scrollViewRef.current?.scrollTo({
-          y: bookmarkData.scrollPosition,
-          animated: false
-        });
+        
+        // Ưu tiên sử dụng bookmark từ Firebase nếu có
+        const bookmarkData = bookData?.bookmarkData || JSON.parse(localBookmark);
+        
+        if (bookmarkData?.scrollPosition) {
+          scrollViewRef.current?.scrollTo({
+            y: bookmarkData.scrollPosition,
+            animated: false
+          });
+        }
       }
     } catch (error) {
       console.error('Error loading bookmark:', error);
@@ -128,8 +183,7 @@ export default function ReadBookScreen() {
   };
 
   const handleAudioBook = () => {
-    console.log('Audio Book pressed');
-    // Implement audio book functionality
+    Alert.alert("Thông báo", "Tính năng sách nói đang được phát triển");
   };
 
   const handleAISummary = () => {
@@ -146,6 +200,14 @@ export default function ReadBookScreen() {
 
   if (!fontsLoaded) {
     return null;
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
   }
 
   return (
@@ -226,7 +288,7 @@ export default function ReadBookScreen() {
           visible={showSettings}
           onRequestClose={() => setShowSettings(false)}
         >
-          <View style={styles.modalContainer}>
+          <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Cài đặt hiển thị</Text>
               
@@ -304,12 +366,21 @@ export default function ReadBookScreen() {
           </View>
         </Modal>
 
-        {/* Floating Action Button */}
-        <FloatingActionButton 
-          onAudioBook={handleAudioBook}
-          onAISummary={handleAISummary}
-        />
+        {/* Summary Modal */}
+        {showSummary && (
+          <SummaryModal 
+            visible={showSummary}
+            onClose={() => setShowSummary(false)}
+            bookContent={bookContent}
+          />
+        )}
       </SafeAreaView>
+      
+      {/* Floating Action Button */}
+      <FloatingActionButton 
+        onAudioBook={handleAudioBook}
+        onAISummary={handleAISummary}
+      />
     </GestureHandlerRootView>
   );
 }
@@ -347,6 +418,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: 'red',
+    textAlign: 'center',
+  },
   bookContent: {
     gap: 24,
   },
@@ -358,7 +440,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1F2937',
   },
-  chapterContent: {
+  chapterContent:{
     color: '#4B5563',
   },
   pageIndicator: {
@@ -380,11 +462,26 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   modalContent: {
     backgroundColor: 'white',
-    padding: 20,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    padding: 20,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: '80%', // Thêm maxHeight để tránh modal quá cao
   },
   modalTitle: {
     fontSize: 20,
@@ -403,7 +500,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: 150,
+    paddingHorizontal: 20,
   },
   controlButton: {
     padding: 8,
@@ -433,12 +530,12 @@ const styles = StyleSheet.create({
   selectedFontText: {
     color: 'white',
   },
-  closeButton: {
-    backgroundColor: '#3B82F6',
-    padding: 12,
+  controlButton: {
+    padding: 8,
     borderRadius: 8,
+    backgroundColor: '#E5E7EB',
+    minWidth: 40,
     alignItems: 'center',
-    marginTop: 20,
   },
   closeButtonText: {
     color: 'white',
