@@ -1,43 +1,91 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { auth } from '../backend/firebase/FirebaseConfig';
+import { libraryService } from '../backend/services/libraryService';
 
-const LibraryScreen = () => {
+function LibraryScreen() {
+  const [bookCounts, setBookCounts] = useState({
+    reading: 0,
+    wantToRead: 0,
+    finished: 0,
+    favorites: 0
+  });
+
   const categories = [
-    { id: '1', title: 'Đang đọc', icon: 'book', color: '#4CAF50' },
-    { id: '2', title: 'Muốn đọc', icon: 'bookmark', color: '#2196F3' },
-    { id: '3', title: 'Đã đọc xong', icon: 'check-circle', color: '#9C27B0' },
-    { id: '4', title: 'Bộ sưu tập', icon: 'collections-bookmark', color: '#FF9800' },
+    { id: '1', title: 'Đang đọc', icon: 'book', color: '#4CAF50', count: bookCounts.reading },
+    { id: '2', title: 'Muốn đọc', icon: 'bookmark', color: '#2196F3', count: bookCounts.wantToRead },
+    { id: '3', title: 'Đã đọc xong', icon: 'check-circle', color: '#9C27B0', count: bookCounts.finished },
+    { id: '4', title: 'Bộ sưu tập', icon: 'collections-bookmark', color: '#FF9800', count: bookCounts.favorites },
   ];
+
+  useEffect(() => {
+    const loadBookCounts = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const userId = currentUser.uid;
+          
+          // Sử dụng libraryService để lấy số lượng sách
+          const [reading, wantToRead, finished, favorites] = await Promise.all([
+            libraryService.getReadingBooks(userId),
+            libraryService.getWantToReadBooks(userId),
+            libraryService.getFinishedBooks(userId),
+            libraryService.getFavoriteBooks(userId)
+          ]);
+
+          setBookCounts({
+            reading,
+            wantToRead,
+            finished,
+            favorites
+          });
+        }
+      } catch (error) {
+        console.error("Error loading book counts:", error);
+      }
+    };
+
+    loadBookCounts();
+  }, []);
+
+  const renderContent = () => {
+    const totalBooks = Object.values(bookCounts).reduce((a, b) => a + b, 0);
+    
+    if (totalBooks === 0) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <Icon name="menu-book" size={48} color="#666" />
+          <Text style={styles.emptyStateText}>
+            Bạn chưa có sách nào trong thư viện
+          </Text>
+        </View>
+      );
+    }
+
+    return categories.map((item) => (
+      <TouchableOpacity key={item.id} style={styles.categoryItem}>
+        <View style={styles.iconContainer}>
+          <Icon name={item.icon} size={24} color={item.color} />
+        </View>
+        <View style={styles.textContainer}>
+          <Text style={styles.categoryTitle}>{item.title}</Text>
+          <Text style={styles.bookCount}>{item.count} cuốn sách</Text>
+        </View>
+        <Icon name="chevron-right" size={24} color="#666" />
+      </TouchableOpacity>
+    ));
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Thư viện của tôi</Text>
       </View>
-
-      {categories.map((item) => (
-        <TouchableOpacity key={item.id} style={styles.categoryItem}>
-          <View style={styles.iconContainer}>
-            <Icon name={item.icon} size={24} color={item.color} />
-          </View>
-          <View style={styles.textContainer}>
-            <Text style={styles.categoryTitle}>{item.title}</Text>
-            <Text style={styles.bookCount}>0 cuốn sách</Text>
-          </View>
-          <Icon name="chevron-right" size={24} color="#666" />
-        </TouchableOpacity>
-      ))}
-
-      <View style={styles.emptyStateContainer}>
-        <Icon name="menu-book" size={48} color="#666" />
-        <Text style={styles.emptyStateText}>
-          Bạn chưa có sách nào trong thư viện
-        </Text>
-      </View>
+      {renderContent()}
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {

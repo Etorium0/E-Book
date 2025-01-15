@@ -9,33 +9,61 @@ import {
   ScrollView,
   StatusBar,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router'; // Chỉ import một lần
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { createNewStory } from '../backend/services/storyHelpers';
 
 const AddStoryScreen = () => {
   const router = useRouter();
   const [coverImage, setCoverImage] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [2, 3],
-      quality: 1,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [2, 3],
+        quality: 1,
+      });
 
-    if (!result.canceled) {
-      setCoverImage(result.assets[0].uri);
+      if (!result.canceled) {
+        setCoverImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Lỗi', 'Không thể chọn ảnh');
     }
   };
 
-  const handleSave = () => {
-    // Handle save logic here
-    console.log({ title, description, coverImage });
+  const handleSave = async () => {
+    if (!title.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề truyện');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const storyId = await createNewStory({
+        title: title.trim(),
+        description: description.trim()
+      }, coverImage);
+
+      router.push({
+        pathname: '/WritingPage',
+        params: { storyId }
+      });
+    } catch (error) {
+      Alert.alert('Lỗi', 'Không thể tạo truyện mới');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -47,15 +75,19 @@ const AddStoryScreen = () => {
         <TouchableOpacity 
           onPress={() => router.back()}
           style={styles.backButton}
+          disabled={loading}
         >
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thêm Thông Tin Truyện</Text>
         <TouchableOpacity 
-          style={styles.skipButton}
-          onPress={() => router.push('/WritingPage')} // Chỉ giữ một onPress
+          style={styles.saveButton}
+          onPress={handleSave}
+          disabled={loading}
         >
-          <Text style={styles.skipText}>BỎ QUA</Text>
+          <Text style={[styles.saveText, loading && styles.disabledText]}>
+            {loading ? 'ĐANG LƯU' : 'LƯU'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -64,6 +96,7 @@ const AddStoryScreen = () => {
         <TouchableOpacity 
           style={styles.coverPickerContainer}
           onPress={pickImage}
+          disabled={loading}
         >
           {coverImage ? (
             <Image 
@@ -86,6 +119,7 @@ const AddStoryScreen = () => {
             placeholderTextColor="#666"
             value={title}
             onChangeText={setTitle}
+            editable={!loading}
           />
           <View style={styles.separator} />
         </View>
@@ -100,10 +134,17 @@ const AddStoryScreen = () => {
             numberOfLines={4}
             value={description}
             onChangeText={setDescription}
+            editable={!loading}
           />
           <View style={styles.separator} />
         </View>
       </ScrollView>
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#FFA500" />
+        </View>
+      )}
     </View>
   );
 };
@@ -131,13 +172,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  skipButton: {
+  saveButton: {
     padding: 8,
   },
-  skipText: {
-    color: 'white',
+  saveText: {
+    color: '#FFA500',
     fontSize: 14,
     fontWeight: '600',
+  },
+  disabledText: {
+    opacity: 0.5,
   },
   content: {
     flex: 1,
@@ -184,6 +228,12 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#333',
     marginTop: 8,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,20 +8,35 @@ import {
   Modal,
   SafeAreaView,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { database, storage } from '../backend/firebase/FirebaseConfig';
+import { ref, get, update } from 'firebase/database';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const WritingPage = () => {
+  const router = useRouter();
+  const { storyId } = useLocalSearchParams();
+  
+  // State cho cài đặt hiển thị
   const [showSettings, setShowSettings] = useState(false);
   const [fontSize, setFontSize] = useState(16);
   const [lineHeight, setLineHeight] = useState(1.5);
   const [fontFamily, setFontFamily] = useState('default');
   
-  // State cho nội dung và lịch sử
+  // State cho nội dung và chỉnh sửa
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('');
-  const [history, setHistory] = useState(['']); // Mảng lưu lịch sử các thay đổi
-  const [currentIndex, setCurrentIndex] = useState(0); // Vị trí hiện tại trong lịch sử
+  const [history, setHistory] = useState(['']);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [chapterId, setChapterId] = useState(null);
+  const [coverImage, setCoverImage] = useState(null);
 
   const fonts = [
     { label: 'Mặc định', value: 'default' },
@@ -29,11 +44,117 @@ const WritingPage = () => {
     { label: 'Times New Roman', value: 'Times' },
   ];
 
-  // Xử lý khi người dùng nhập text
+  // Tải dữ liệu chương truyện khi component được mount
+  useEffect(() => {
+    loadChapterData();
+  }, [storyId]);
+
+  // Hàm tải dữ liệu chương truyện
+  const loadChapterData = async () => {
+    try {
+      setLoading(true);
+      const storyRef = ref(database, `books/${storyId}`);
+      const snapshot = await get(storyRef);
+      const storyData = snapshot.val();
+
+      if (!storyData) {
+        Alert.alert('Lỗi', 'Không tìm thấy truyện');
+        return;
+      }
+
+      // Lấy chương cuối cùng hoặc tạo chương mới
+      const chapters = storyData.chapters || {};
+      const lastChapter = Object.entries(chapters).pop();
+      
+      if (lastChapter) {
+        const [id, data] = lastChapter;
+        setChapterId(id);
+        setTitle(data.name || '');
+        setContent(data.content || '');
+        setHistory([data.content || '']);
+      }
+
+      setCoverImage(storyData.image);
+    } catch (error) {
+      console.error('Lỗi khi tải dữ liệu:', error);
+      Alert.alert('Lỗi', 'Không thể tải dữ liệu chương truyện');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Hàm lưu nội dung chương
+  const saveChapter = async () => {
+    if (!title.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề chương');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const chapterData = {
+        name: title.trim(),
+        content: content.trim(),
+        updatedat: new Date().toISOString(),
+      };
+
+      if (chapterId) {
+        // Cập nhật chương hiện có
+        await update(ref(database, `books/${storyId}/chapters/${chapterId}`), chapterData);
+      } else {
+        // Tạo chương mới
+        const newChapterRef = push(ref(database, `books/${storyId}/chapters`));
+        await set(newChapterRef, {
+          ...chapterData,
+          createdat: new Date().toISOString(),
+          orderindex: 1,
+          view: 0,
+        });
+        setChapterId(newChapterRef.key);
+      }
+
+      Alert.alert('Thành công', 'Đã lưu chương truyện');
+    } catch (error) {
+      console.error('Lỗi khi lưu chương:', error);
+      Alert.alert('Lỗi', 'Không thể lưu chương truyện');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Xử lý upload ảnh
+  const handleImageUpload = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        const imageUri = result.assets[0].uri;
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        
+        const imageRef = storageRef(storage, `chapters/${storyId}/${Date.now()}`);
+        await uploadBytes(imageRef, blob);
+        const downloadUrl = await getDownloadURL(imageRef);
+
+        // Chèn URL ảnh vào nội dung
+        const imageTag = `[image:${downloadUrl}]`;
+        const newContent = `${content}\n${imageTag}\n`;
+        handleContentChange(newContent);
+      }
+    } catch (error) {
+      console.error('Lỗi khi upload ảnh:', error);
+      Alert.alert('Lỗi', 'Không thể upload ảnh');
+    }
+  };
+
+  // Xử lý thay đổi nội dung
   const handleContentChange = (text) => {
     setContent(text);
-    
-    // Chỉ thêm vào lịch sử nếu nội dung thực sự thay đổi
     if (text !== history[currentIndex]) {
       const newHistory = history.slice(0, currentIndex + 1);
       newHistory.push(text);
@@ -42,7 +163,7 @@ const WritingPage = () => {
     }
   };
 
-  // Xử lý Undo
+  // Xử lý Undo/Redo
   const handleUndo = useCallback(() => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
@@ -50,7 +171,6 @@ const WritingPage = () => {
     }
   }, [currentIndex, history]);
 
-  // Xử lý Redo
   const handleRedo = useCallback(() => {
     if (currentIndex < history.length - 1) {
       setCurrentIndex(currentIndex + 1);
@@ -58,9 +178,41 @@ const WritingPage = () => {
     }
   }, [currentIndex, history]);
 
-  // Kiểm tra xem có thể Undo/Redo không
+  // Kiểm tra khả năng Undo/Redo
   const canUndo = currentIndex > 0;
   const canRedo = currentIndex < history.length - 1;
+
+  // Xử lý đăng truyện
+  const handlePublish = async () => {
+    try {
+      if (!content.trim() || !title.trim()) {
+        Alert.alert('Lỗi', 'Vui lòng điền đầy đủ tiêu đề và nội dung');
+        return;
+      }
+
+      setSaving(true);
+      await update(ref(database, `books/${storyId}`), {
+        status: 'pending',
+        updatedat: new Date().toISOString(),
+      });
+
+      Alert.alert('Thành công', 'Đã gửi truyện để duyệt');
+      router.back();
+    } catch (error) {
+      console.error('Lỗi khi đăng truyện:', error);
+      Alert.alert('Lỗi', 'Không thể đăng truyện');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FFA500" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -68,28 +220,42 @@ const WritingPage = () => {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+          disabled={saving}
+        >
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Part 1 of 1</Text>
-        <TouchableOpacity>
-          <Text style={styles.publishButton}>ĐĂNG</Text>
+        <Text style={styles.headerTitle}>Chỉnh sửa chương</Text>
+        <TouchableOpacity 
+          onPress={handlePublish}
+          disabled={saving}
+        >
+          <Text style={[styles.publishButton, saving && styles.disabledText]}>
+            {saving ? 'ĐANG LƯU...' : 'ĐĂNG'}
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* Content */}
       <View style={styles.content}>
-        <TouchableOpacity style={styles.mediaUpload}>
+        <TouchableOpacity 
+          style={styles.mediaUpload}
+          onPress={handleImageUpload}
+          disabled={saving}
+        >
           <Ionicons name="image-outline" size={24} color="#666" />
-          <Text style={styles.mediaText}>Nhấp để thêm media</Text>
+          <Text style={styles.mediaText}>Nhấp để thêm ảnh</Text>
         </TouchableOpacity>
 
         <TextInput
           style={[styles.titleInput, { fontSize: fontSize }]}
-          placeholder="Đặt Tiêu đề cho Chương Truyện của bạn"
+          placeholder="Đặt tiêu đề cho chương truyện"
           placeholderTextColor="#666"
           value={title}
           onChangeText={setTitle}
+          editable={!saving}
         />
 
         <TextInput
@@ -106,6 +272,7 @@ const WritingPage = () => {
           multiline
           value={content}
           onChangeText={handleContentChange}
+          editable={!saving}
         />
       </View>
 
@@ -113,46 +280,41 @@ const WritingPage = () => {
       <View style={styles.bottomNav}>
         <View style={styles.navLeft}>
           <TouchableOpacity 
-            style={[
-              styles.navButton,
-              !canUndo && styles.disabledButton
-            ]}
+            style={[styles.navButton, !canUndo && styles.disabledButton]}
             onPress={handleUndo}
-            disabled={!canUndo}
+            disabled={!canUndo || saving}
           >
-            <Ionicons 
-              name="arrow-back" 
-              size={24} 
-              color={canUndo ? '#666' : '#333'} 
-            />
+            <Ionicons name="arrow-back" size={24} color={canUndo ? '#666' : '#333'} />
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[
-              styles.navButton,
-              !canRedo && styles.disabledButton
-            ]}
+            style={[styles.navButton, !canRedo && styles.disabledButton]}
             onPress={handleRedo}
-            disabled={!canRedo}
+            disabled={!canRedo || saving}
           >
-            <Ionicons 
-              name="arrow-forward" 
-              size={24} 
-              color={canRedo ? '#666' : '#333'} 
-            />
+            <Ionicons name="arrow-forward" size={24} color={canRedo ? '#666' : '#333'} />
           </TouchableOpacity>
         </View>
         <View style={styles.navRight}>
           <TouchableOpacity 
             style={styles.navButton}
             onPress={() => setShowSettings(true)}
+            disabled={saving}
           >
             <Text style={styles.formatText}>Aa</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navButton}>
+          <TouchableOpacity 
+            style={styles.navButton}
+            onPress={handleImageUpload}
+            disabled={saving}
+          >
             <Ionicons name="image" size={24} color="#FFA500" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="play" size={24} color="#FFA500" />
+          <TouchableOpacity 
+            style={styles.navButton}
+            onPress={saveChapter}
+            disabled={saving}
+          >
+            <Ionicons name="save" size={24} color="#FFA500" />
           </TouchableOpacity>
         </View>
       </View>
@@ -241,12 +403,20 @@ const WritingPage = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Save state */}
+      {saving && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#FFA500" />
+        </View>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: 12,
     flex: 1,
     backgroundColor: '#000',
   },
@@ -404,6 +574,21 @@ const styles = StyleSheet.create({
     color: 'black',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  disabledText: {
+    opacity: 0.5,
   },
 });
 

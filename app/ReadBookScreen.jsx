@@ -9,6 +9,9 @@ import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { bookService } from '../backend/services/bookManagement';
+import Pdf from 'react-native-pdf';
+import RNFetchBlob from 'react-native-blob-util';
+
 
 // Components
 import BackButton from '../components/BackButton';
@@ -33,6 +36,10 @@ export default function ReadBookScreen() {
   const [showSummary, setShowSummary] = useState(false);
   const [error, setError] = useState(null);
 
+  //Pdf states
+  const [isPDF, setIsPDF] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+
   // Settings states
   const [fontSize, setFontSize] = useState(16);
   const [lineHeight, setLineHeight] = useState(1.5);
@@ -46,38 +53,108 @@ export default function ReadBookScreen() {
 
   useEffect(() => {
     fetchBookContent();
+    detectAndDecodeContent();
     loadBookmark();
     updateReadingProgress();
   }, [id]);
 
-const fetchBookContent = async () => {
-  try {
-    setLoading(true);
-    const result = await bookService.getBooks();
-    
-    if (result.success && result.data[id]) {
-      const bookData = result.data[id];
-      // Đảm bảo chapters luôn là một mảng
-      const chapters = Array.isArray(bookData.chapters) ? bookData.chapters : [{
-        id: 1,
-        title: "Chương 1",
-        content: bookData.content || "Không có nội dung"
-      }];
+  const fetchBookContent = async () => {
+    try {
+      setLoading(true);
+      const result = await bookService.getBooks();
       
-      setBookContent({
-        title: bookData.title,
-        chapters: chapters
-      });
-    } else {
-      setError("Không thể tải nội dung sách");
+      if (result.success && result.data[id]) {
+        const bookData = result.data[id];
+        const chaptersArray = bookData.chapters ? 
+          Object.entries(bookData.chapters).map(([chapterId, chapter]) => ({
+            id: chapterId,
+            title: chapter.name,
+            content: chapter.content,
+            orderindex: chapter.orderindex
+          })).sort((a, b) => a.orderindex - b.orderindex) : 
+          [];
+  
+        if (chaptersArray.length === 0) {
+          chaptersArray.push({
+            id: 1,
+            title: "Chương 1",
+            content: "Không có nội dung"
+          });
+        }
+        
+        // Fetch và xử lý content
+        for (let chapter of chaptersArray) {
+          if (chapter.content && chapter.content.startsWith('http')) {
+            try {
+              // Kiểm tra content type trước khi tải
+              const headResponse = await fetch(chapter.content, { method: 'HEAD' });
+              const contentType = headResponse.headers.get('content-type');
+  
+              if (contentType?.includes('application/pdf')) {
+                // Xử lý PDF
+                setIsPDF(true);
+                setPdfUrl(chapter.content);
+                // Không cần fetch content vì sẽ hiển thị trực tiếp bằng PDF viewer
+                chapter.isPDF = true;
+                chapter.pdfUrl = chapter.content;
+              } else {
+                // Xử lý text content như cũ
+                const response = await fetch(chapter.content);
+                const text = await response.text();
+                
+                if (contentType?.includes('text/plain')) {
+                  chapter.content = decodeURIComponent(escape(text));
+                } else {
+                  try {
+                    const decoded = new TextDecoder('utf-8').decode(
+                      new TextEncoder().encode(text)
+                    );
+                    chapter.content = decoded;
+                  } catch {
+                    chapter.content = text;
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching chapter content:', error);
+              chapter.content = "Không thể tải nội dung chương này";
+            }
+          }
+        }
+  
+        setBookContent({
+          title: bookData.name,
+          chapters: chaptersArray
+        });
+        
+      } else {
+        setError("Không thể tải nội dung sách");
+      }
+    } catch (error) {
+      console.error('Error fetching book content:', error);
+      setError("Đã xảy ra lỗi khi tải nội dung sách");
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching book content:', error);
-    setError("Đã xảy ra lỗi khi tải nội dung sách");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+    
+  // Add this utility function to help with encoding detection and conversion
+  const detectAndDecodeContent = (text) => {
+    try {
+      // Try UTF-8 first
+      return new TextDecoder('utf-8').decode(
+        new TextEncoder().encode(text)
+      );
+    } catch {
+      try {
+        // Try Windows-1252 (common for Vietnamese text)
+        return decodeURIComponent(escape(text));
+      } catch {
+        // Last resort: return as-is
+        return text;
+      }
+    }
+  };
 
   const updateReadingProgress = async () => {
     try {
@@ -389,6 +466,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+    paddingTop: 20,
   },
   header: {
     flexDirection: 'row',
