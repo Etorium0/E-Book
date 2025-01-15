@@ -6,6 +6,7 @@ import { HeartIcon, ArrowDownTrayIcon, EllipsisHorizontalIcon, ShareIcon } from 
 import { StarIcon } from 'react-native-heroicons/solid';
 import BackButton from '../components/BackButton';
 import { bookService } from '../backend/services/bookManagement';
+import { getStorage, ref, getDownloadURL } from 'firebase/storage'; 
 
 const {width, height} = Dimensions.get('window');
 const ios = Platform.OS == 'ios';
@@ -15,19 +16,22 @@ export default function BookScreen() {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [description, setDescription] = useState(""); // State for description
+
 
   useEffect(() => {
+    console.log("Book ID from params:", params.id);
     fetchBookDetails();
   }, [params.id]);
 
   const fetchBookDetails = async () => {
     try {
       const bookRef = await bookService.getBooks();
-      // Đảm bảo bookRef.data tồn tại và là object
+      // Ensure bookRef.data is valid and an object
       if (bookRef && bookRef.data) {
         const bookData = bookRef.data[params.id];
         if (bookData) {
-          // Chuyển đổi dữ liệu từ database thành object đầy đủ
+          // Format book data
           const formattedBook = {
             ...bookData,
             id: params.id,
@@ -35,9 +39,14 @@ export default function BookScreen() {
             downloads: bookData.downloads || 0,
             favoriteCount: bookData.favoriteCount || 0,
             rating: bookData.rating || 0,
-            categories: bookData.categories || []
+            categories: bookData.categories || [],
+            descriptionFile: bookData.description // Assuming description is a file URL
           };
           setBook(formattedBook);
+          // Fetch description from Firebase Storage if exists
+          if (bookData.description) {
+            fetchDescription(bookData.description);
+          }
         }
       }
     } catch (error) {
@@ -46,6 +55,21 @@ export default function BookScreen() {
       setLoading(false);
     }
   };
+  const fetchDescription = async (fileUrl) => {
+    try {
+      const storage = getStorage(); // Initialize Firebase Storage
+      const fileRef = ref(storage, fileUrl);
+      const url = await getDownloadURL(fileRef); // Get the download URL
+
+      // Fetch the content from the file
+      const response = await fetch(url);
+      const text = await response.text(); // Read the file content
+      setDescription(text); // Update the state with description content
+    } catch (error) {
+      console.error("Error fetching description:", error);
+    }
+  };
+
 
   const handleFavorite = async () => {
     try {
@@ -137,7 +161,7 @@ export default function BookScreen() {
     <View style={styles.container}>
       {/* Background Image with Blur */}
       <Image 
-        source={{ uri: book.imageUrl }}
+        source={{ uri: book.image }}
         style={styles.backgroundImage}
         blurRadius={5}
       />
@@ -156,14 +180,14 @@ export default function BookScreen() {
         <View style={styles.content}>
           {/* Cover Image */}
           <Image 
-            source={{ uri: book.imageUrl }}
+            source={{ uri: book.image }}
             style={styles.coverImage}
             resizeMode="contain"
           />
 
           {/* Book Details */}
           <View style={styles.detailsContainer}>
-            <Text style={styles.title}>{book.title}</Text>
+            <Text style={styles.title}>{book.name}</Text>
             <Text style={styles.author}>{book.author}</Text>
 
             {/* Rating Section */}
@@ -232,8 +256,11 @@ export default function BookScreen() {
             {/* Description */}
             <View style={styles.description}>
               <Text style={styles.descriptionTitle}>Giới thiệu</Text>
-              <Text style={styles.descriptionText}>{book.description}</Text>
+  <Text style={styles.descriptionText}>
+    {typeof description === 'string' ? description : "Không có mô tả"}
+  </Text>
             </View>
+
 
             {/* Additional Info */}
             {book.publishDate && (
@@ -377,7 +404,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   readButton: {
-    backgroundColor: '#00C853',
+    backgroundColor: '#A2B2FC',
     width: '100%',
     paddingVertical: 16,
     borderRadius: 30,

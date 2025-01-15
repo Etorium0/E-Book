@@ -4,15 +4,43 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { auth } from '../backend/firebase/FirebaseConfig';
 import { getUserStories } from '../backend/services/storyHelpers';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getDatabase, ref, get } from 'firebase/database';
 
 const WriteScreen = () => {
   const router = useRouter();
   const [userStories, setUserStories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
+    const auth = getAuth();
+    const currentUser = auth.currentUser;
+
+    if (currentUser) {
+        const userId = currentUser.uid;
+
+        const db = getDatabase();
+              const userRef = ref(db, `users/${userId}`);
+
+              get(userRef)
+                      .then((snapshot) => {
+                        if (snapshot.exists()) {
+                          setUser(snapshot.val()); // Lưu thông tin người dùng, bao gồm avatarUrl
+                        } else {
+                          setUser(null);
+                        }
+                      })
+                      .catch((error) => {
+                        console.error('Lỗi khi lấy dữ liệu người dùng:', error);
+                      });
+                  } else {
+                    console.log('Không có người dùng đăng nhập');
+                  }
+
     loadUserStories();
   }, []);
+  
 
   const loadUserStories = async () => {
     try {
@@ -58,12 +86,15 @@ const WriteScreen = () => {
       <View style={styles.header}>
         <View style={styles.userInfo}>
           <View style={styles.avatarContainer}>
-            <Image
-              source={{ uri: auth.currentUser?.photoURL || undefined }}
-              defaultSource={require('../assets/images/icon.png')}
-              style={styles.avatar}
-            />
-          </View>
+              <Image 
+                source={
+                    user && user.avatar // Lấy avatar từ Realtime Database
+                     ? { uri: user.avatar } // Sử dụng link avatar từ Realtime Database
+                    : require('../assets/images/icon.png') // Ảnh mặc định
+                  }
+                style={styles.avatar}
+              />
+            </View>
           <Text style={styles.username}>{auth.currentUser?.displayName || 'Người dùng'}</Text>
         </View>
         <Text style={styles.headerTitle}>Viết</Text>

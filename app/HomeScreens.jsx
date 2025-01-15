@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +13,7 @@ const HomeScreens = () => {
   const [upcoming, setUpcoming] = useState([]);
   const [topRated, setTopRated] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const router = useRouter();
 
@@ -21,22 +22,21 @@ const HomeScreens = () => {
   }, []);
 
   const fetchBooks = async () => {
+    setRefreshing(true);
     try {
-      // Lấy sách trending
       const trendingData = await bookService.getTrendingBooks(3);
       setTrending(trendingData);
 
-      // Lấy sách mới
       const upcomingData = await bookService.getUpcomingBooks(3);
       setUpcoming(upcomingData);
 
-      // Lấy sách đánh giá cao
       const topRatedData = await bookService.getTopRatedBooks(3);
       setTopRated(topRatedData);
     } catch (error) {
       console.error("Error fetching books:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -46,16 +46,20 @@ const HomeScreens = () => {
       await bookService.updateBook(item.id, {
         view: (item.view || 0) + 1
       });
-      
+      console.log("Đang chuyển đến BookScreen với ID:", item.id);
       // Chuyển đến trang chi tiết sách
+      if (!item.id) {
+      console.log("ID không hợp lệ hoặc không có giá trị");
+       return; // Dừng việc chuyển trang nếu không có id
+}
       router.push({
         pathname: '/BookScreen',
         params: {
           id: item.id,
-          title: item.title,
+          title: item.name,  
           author: item.author,
           description: item.description,
-          imageUrl: item.imageUrl
+          imageUrl: item.image
         }
       });
     } catch (error) {
@@ -94,17 +98,33 @@ const HomeScreens = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshing={loading}
-        onRefresh={fetchBooks}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={fetchBooks}
+          />
+        }
       >
         {/* Trending Books */}
-        <TrendingBooks data={trending} handleClick={handleClick} />
+        {trending.length > 0 ? (
+          <TrendingBooks data={trending} handleClick={handleClick} />
+        ) : (
+          <Text style={styles.noDataText}>Chưa có sách nổi bật</Text>
+        )}
 
         {/* Upcoming Books */}
-        <BookList title="Sách Mới" data={upcoming} handleClick={handleClick} />
+        {upcoming.length > 0 ? (
+          <BookList title="Sách Mới" data={upcoming} handleClick={handleClick} />
+        ) : (
+          <Text style={styles.noDataText}>Chưa có sách mới</Text>
+        )}
 
         {/* TopRated Books */}
-        <BookList title="Sách Đánh Giá Cao" data={topRated} handleClick={handleClick} />
+        {topRated.length > 0 ? (
+          <BookList title="Sách Đánh Giá Cao" data={topRated} handleClick={handleClick} />
+        ) : (
+          <Text style={styles.noDataText}>Chưa có sách đánh giá cao</Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -145,6 +165,12 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingBottom: 20,
+  },
+  noDataText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
 

@@ -36,7 +36,9 @@ export const bookService = {
         ...bookData,
         created_at: Date.now(),
         view: 0,
-        rating: 0
+        rating: 0,
+        totalcomment: 0,
+        totalrating: 0
       };
 
       await set(bookRef, bookWithTimestamp);
@@ -68,6 +70,7 @@ export const bookService = {
     }
   },
 
+  // Lấy sách trending (theo lượt xem)
   async getTrendingBooks(limit = 3) {
     try {
       const booksRef = ref(db, 'books');
@@ -85,7 +88,14 @@ export const bookService = {
       snapshot.forEach((child) => {
         books.push({
           id: child.key,
-          ...child.val()
+          name: child.val().name,
+          author: child.val().author,
+          description: child.val().description,
+          image: child.val().image,
+          view: child.val().view,
+          rating: child.val().rating,
+          totalcomment: child.val().totalcomment,
+          totalrating: child.val().totalrating,
         });
       });
       
@@ -99,7 +109,7 @@ export const bookService = {
     }
   },
 
-  // Lấy sách mới
+  // Lấy sách mới (theo thời gian tạo)
   async getUpcomingBooks(limit = 3) {
     try {
       const booksRef = ref(db, 'books');
@@ -117,7 +127,14 @@ export const bookService = {
       snapshot.forEach((child) => {
         books.push({
           id: child.key,
-          ...child.val()
+          name: child.val().name,
+          author: child.val().author,
+          description: child.val().description,
+          image: child.val().image,
+          view: child.val().view,
+          rating: child.val().rating,
+          totalcomment: child.val().totalcomment,
+          totalrating: child.val().totalrating,
         });
       });
       
@@ -149,7 +166,14 @@ export const bookService = {
       snapshot.forEach((child) => {
         books.push({
           id: child.key,
-          ...child.val()
+          name: child.val().name,
+          author: child.val().author,
+          description: child.val().description,
+          image: child.val().image,
+          view: child.val().view,
+          rating: child.val().rating,
+          totalcomment: child.val().totalcomment,
+          totalrating: child.val().totalrating,
         });
       });
       

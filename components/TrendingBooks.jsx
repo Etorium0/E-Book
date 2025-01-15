@@ -1,5 +1,4 @@
 import { View, Text, TouchableOpacity, Image, StyleSheet, Dimensions } from 'react-native';
-import React from 'react';
 import Carousel from 'react-native-reanimated-carousel';
 import { router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -9,6 +8,9 @@ import Animated, {
   useSharedValue,
   withSpring 
 } from 'react-native-reanimated';
+import React, { useEffect, useState } from 'react';
+import { get, ref } from 'firebase/database';
+import { database } from '../backend/firebase/FirebaseConfig';  // Import Firebase config
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.6;
@@ -52,13 +54,13 @@ const MovieCard = ({ item, handleClick, index, animationValue }) => {
       style={[styles.cardContainer, cardStyle]}
     >
       <Image
-        source={item.imageUrl ? { uri: item.imageUrl } : require('../assets/images/books/3.png')}
+        source={item.image ? { uri: item.image } : require('../assets/images/books/6.png')}
         style={styles.image}
         resizeMode="cover"
       />
       <View style={styles.overlay}>
         <View style={styles.textContainer}>
-          <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+          <Text style={styles.title} numberOfLines={2}>{item.name}</Text>
           <Text style={styles.author} numberOfLines={1}>{item.author}</Text>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
@@ -67,7 +69,7 @@ const MovieCard = ({ item, handleClick, index, animationValue }) => {
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Đánh giá</Text>
-              <Text style={styles.statValue}>{item.rating || 0}⭐</Text>
+              <Text style={styles.statValue}>{item.totalrating || 0}⭐</Text>
             </View>
           </View>
         </View>
@@ -76,10 +78,34 @@ const MovieCard = ({ item, handleClick, index, animationValue }) => {
   );
 };
 
-const TrendingBooks = ({ data, handleClick }) => {
+const TrendingBooks = ({ handleClick }) => {
+  const [data, setData] = useState([]);
   const animationValue = useSharedValue(0);
 
-  if (!data || !Array.isArray(data) || data.length === 0) {
+  useEffect(() => {
+    const fetchTrendingBooks = async () => {
+  try {
+    const booksRef = ref(database, 'books');
+    
+    const snapshot = await get(booksRef);
+    if (snapshot.exists()) {
+      const books = Object.entries(snapshot.val()).map(([id, book]) => ({
+        id,   // Lấy id từ khóa của mỗi mục
+        ...book,  // Kết hợp dữ liệu sách
+      }));
+      setData(books);
+    } else {
+      console.log('No trending books found');
+    }
+  } catch (error) {
+    console.error('Error fetching books:', error);
+  }
+};
+
+    fetchTrendingBooks();
+  }, []);
+
+  if (!data || data.length === 0) {
     return (
       <View style={styles.container}>
         <View style={styles.headerContainer}>
@@ -142,6 +168,7 @@ const TrendingBooks = ({ data, handleClick }) => {
     </GestureHandlerRootView>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

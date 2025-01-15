@@ -77,7 +77,7 @@ const index = () => {
 
     // Navigate after animation
     setTimeout(() => {
-      router.push('Login');
+      router.push('HomeScreens');
     }, 500);
   };
 
@@ -85,14 +85,6 @@ const index = () => {
     <AnimatedPressable style={[styles.container]} onPress={handlePress}>
       <Animated.View style={[styles.backgroundContainer, animatedStyle]}>
         <ImageBackground source={backgroundImage} style={styles.background}>
-          <View style={styles.overlay}>
-            <AnimatedText style={[styles.title, textStyle]}>
-              Welcome to E-Books
-            </AnimatedText>
-            <AnimatedText style={[styles.subtitle, textStyle]}>
-              Tap anywhere to continue
-            </AnimatedText>
-          </View>
         </ImageBackground>
       </Animated.View>
     </AnimatedPressable>
