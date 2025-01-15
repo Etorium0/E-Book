@@ -25,8 +25,14 @@
     "@types/react-native-snap-carousel": "^3.8.11",
     "axios": "^1.7.7",
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     "expo": "^52.0.23",
     "expo-constants": "~17.0.3",
+=======
+    "expo": "^52.0.25",
+    "expo-constants": "~17.0.4",
+    "expo-file-system": "~18.0.7",
+>>>>>>> Stashed changes
 =======
     "expo": "^52.0.25",
     "expo-constants": "~17.0.4",
