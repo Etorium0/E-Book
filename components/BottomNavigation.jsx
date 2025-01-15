@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   activeTabButton: {
-    backgroundColor: '#00C853',
+    backgroundColor: '#A2B2FC',
   },
   tabLabel: {
     color: '#FFFFFF',

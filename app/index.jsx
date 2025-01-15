@@ -14,9 +14,18 @@ const index = () => {
   };
 
   return (
+<<<<<<< Updated upstream
     <Pressable style={styles.container} onPress={handlePress}>
       <ImageBackground source={backgroundImage} style={styles.background} />
     </Pressable>
+=======
+    <AnimatedPressable style={[styles.container]} onPress={handlePress}>
+      <Animated.View style={[styles.backgroundContainer, animatedStyle]}>
+        <ImageBackground source={backgroundImage} style={styles.background}>
+        </ImageBackground>
+      </Animated.View>
+    </AnimatedPressable>
+>>>>>>> Stashed changes
   );
 };
 

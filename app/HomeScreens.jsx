@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Bars3CenterLeftIcon, MagnifyingGlassIcon } from 'react-native-heroicons/outline';
-import TrendingBooks from '../components/trendingBooks';
+import TrendingBooks from '../components/TrendingBooks';
 import BookList from '../components/bookList';
 import { useRouter } from 'expo-router';  // Add this import
 
