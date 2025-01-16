@@ -1,111 +1,119 @@
-import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   TouchableOpacity,
-  Dimensions 
+  Dimensions,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import BackButton from '../components/BackButton';
 import { StatusBar } from 'expo-status-bar';
+import BackButton from '../components/BackButton';
+import { db } from '../backend/firebase/FirebaseConfig';
+import { ref, get } from 'firebase/database';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-const CategoryScreen = () => {
-  const categories = [
-    {
-      id: 1,
-      name: 'Kinh doanh',
-      total: 150
-    },
-    {
-      id: 2,
-      name: 'Sách nói',
-      total: 80
-    },
-    {
-      id: 3,
-      name: 'Truyện tranh',
-      total: 200
-    },
-    {
-      id: 4,
-      name: 'Sách thiếu nhi',
-      total: 120
-    },
-    {
-      id: 5,
-      name: 'Quản trị - Lãnh đạo',
-      total: 90
-    },
-    {
-      id: 6,
-      name: 'Tài chính ngân hàng',
-      total: 70
-    },
-    {
-      id: 7,
-      name: 'Tâm lý - Kỹ năng sống',
-      total: 180
-    },
-    {
-      id: 8,
-      name: 'Ngoại ngữ',
-      total: 100
-    },
-    {
-      id: 9,
-      name: 'Truyện - Tiểu thuyết',
-      total: 250
-    },
-    {
-      id: 10,
-      name: 'Phát triển bản thân',
-      total: 160
-    },
-    {
-      id: 11,
-      name: 'Văn học',
-      total: 220
-    },
-    {
-      id: 12,
-      name: 'Chứng khoán',
-      total: 50
-    },
-    {
-      id: 13,
-      name: 'Truyện ngắn',
-      total: 130
-    },
-    {
-      id: 14,
-      name: 'Chính trị - Triết học',
-      total: 85
+const CategoryScreen = ({ navigation }) => {
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+  try {
+    const categoriesRef = ref(db, 'categories');
+    const snapshot = await get(categoriesRef);
+    
+    if (snapshot.exists()) {
+      const categoriesData = Object.entries(snapshot.val()).map(([key, value]) => ({
+        id: key,
+        name: value.name,
+        description: value.description,
+        bookcount: 0, // Khởi tạo bookcount là 0
+        keyword: value.keyword,
+        parentId: value.parentId || 0,
+        createdat: value.createdat,
+        updatedat: value.updatedat
+      }));
+
+      // Lấy danh sách sách từ Firebase
+      const booksRef = ref(db, 'books');
+      const booksSnapshot = await get(booksRef);
+
+      if (booksSnapshot.exists()) {
+        const booksData = booksSnapshot.val();
+        
+        // Chuyển đối tượng booksData thành mảng
+        const booksArray = Object.values(booksData);
+        
+        // Đếm số lượng sách cho từng thể loại
+        booksArray.forEach(book => {
+          const categoryIds = Object.keys(book.categories || {});
+          categoryIds.forEach(categoryId => {
+            const category = categoriesData.find(cat => cat.id === categoryId);
+            if (category) {
+              category.bookcount += 1; // Tăng số lượng sách cho thể loại này
+            }
+          });
+        });
+      }
+
+      // Lọc ra các categories có parentId = 0 (categories gốc)
+      const rootCategories = categoriesData.filter(cat => cat.parentId === 0);
+      
+      // Sắp xếp theo tên
+      rootCategories.sort((a, b) => a.name.localeCompare(b.name));
+
+      // Kiểm tra số lượng sách của mỗi thể loại
+      rootCategories.forEach(category => {
+        console.log(`Category: ${category.name}, Book Count: ${category.bookcount}`);
+      });
+
+      setCategories(rootCategories);
+    } else {
+      console.log("No categories data available");
+      setCategories([]);
     }
-  ];
+  } catch (error) {
+    console.error('Error details:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleCategoryPress = (category) => {
-    console.log('Selected category:', category.name);
+    navigation.navigate('CategoryDetail', {
+      categoryId: category.id,
+      categoryName: category.name
+    });
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#fff" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Header */}
+
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <BackButton />
+          <BackButton onPress={() => navigation.goBack()} />
           <Text style={styles.headerTitle}>Thể loại</Text>
-          <View style={{width: 40}} />
+          <View style={{ width: 40 }} />
         </View>
       </View>
 
-      {/* Main Content */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={true}
         scrollIndicatorInsets={{ right: 1 }}
@@ -118,8 +126,17 @@ const CategoryScreen = () => {
               onPress={() => handleCategoryPress(category)}
             >
               <View style={styles.categoryContent}>
-                <Text style={styles.categoryName}>{category.name}</Text>
-                <Text style={styles.categoryCount}>{category.total} cuốn</Text>
+                <View style={styles.categoryInfo}>
+                  <Text style={styles.categoryName}>{category.name}</Text>
+                  {category.description && (
+                    <Text style={styles.categoryDescription} numberOfLines={1}>
+                      {category.description}
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.categoryCount}>
+                  {category.bookcount || 0} cuốn
+                </Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -133,6 +150,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1F1F1F',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     backgroundColor: '#1F1F1F',
@@ -168,15 +189,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  categoryInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
   categoryName: {
     color: 'white',
     fontSize: 16,
     fontWeight: '400',
+    marginBottom: 4,
+  },
+  categoryDescription: {
+    color: '#666',
+    fontSize: 12,
   },
   categoryCount: {
     color: '#666',
     fontSize: 14,
-  }
+  },
 });
 
 export default CategoryScreen;

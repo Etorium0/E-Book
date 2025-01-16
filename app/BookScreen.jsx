@@ -17,6 +17,8 @@ export default function BookScreen() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [description, setDescription] = useState(""); // State for description
+  const [isExpanded, setIsExpanded] = useState(false);
+const [authors, setAuthors] = useState([]);
 
 
   useEffect(() => {
@@ -40,9 +42,11 @@ export default function BookScreen() {
             favoriteCount: bookData.favoriteCount || 0,
             rating: bookData.rating || 0,
             categories: bookData.categories || [],
-            descriptionFile: bookData.description // Assuming description is a file URL
+            descriptionFile: bookData.description,
+            authors: bookData.authors || [], // Assuming description is a file URL
           };
           setBook(formattedBook);
+          fetchAuthors(bookData.authors);
           // Fetch description from Firebase Storage if exists
           if (bookData.description) {
             fetchDescription(bookData.description);
@@ -55,6 +59,27 @@ export default function BookScreen() {
       setLoading(false);
     }
   };
+   const fetchAuthors = async (authorIds) => {
+  console.log("Author IDs:", authorIds);  // In ra authorIds để kiểm tra
+  try {
+    const authorList = [];
+    for (const authorId in authorIds) {
+      if (authorIds[authorId]) {
+        const author = await bookService.getAuthorById(authorId);
+        console.log("Author object:", author);  // Kiểm tra đối tượng tác giả
+        if (author && author.data && author.data.name) {  // Kiểm tra trường name trong data
+          authorList.push(author.data);  // Đảm bảo rằng bạn đang lấy đúng trường data
+        } else {
+          console.log("Tên tác giả bị thiếu cho ID:", authorId);
+        }
+      }
+    }
+    setAuthors(authorList);
+  } catch (error) {
+    console.error("Lỗi khi lấy thông tin tác giả:", error);
+  }
+};
+  
   const fetchDescription = async (fileUrl) => {
     try {
       const storage = getStorage(); // Initialize Firebase Storage
@@ -70,6 +95,9 @@ export default function BookScreen() {
     }
   };
 
+  const toggleDescription = () => {
+  setIsExpanded(!isExpanded);
+};
 
   const handleFavorite = async () => {
     try {
@@ -188,7 +216,14 @@ export default function BookScreen() {
           {/* Book Details */}
           <View style={styles.detailsContainer}>
             <Text style={styles.title}>{book.name}</Text>
-            <Text style={styles.author}>{book.author}</Text>
+            <View style={styles.authorsContainer}>
+          <Text style={styles.authorsTitle}>Tác giả: {authors.length > 0 ? authors.map((author, index) => (
+      <Text key={index} style={styles.authorName}>
+        {author.name}{index < authors.length - 1 ? ", " : ""}
+      </Text>
+    )) : " Chưa có tác giả"}
+  </Text>
+</View>
 
             {/* Rating Section */}
             <View style={styles.ratingSection}>
@@ -253,13 +288,22 @@ export default function BookScreen() {
               ))}
             </View>
 
-            {/* Description */}
             <View style={styles.description}>
-              <Text style={styles.descriptionTitle}>Giới thiệu</Text>
+  <Text style={styles.descriptionTitle}>Giới thiệu</Text>
   <Text style={styles.descriptionText}>
-    {typeof description === 'string' ? description : "Không có mô tả"}
+    {isExpanded 
+      ? description 
+      : `${description.slice(0, 200)}...`}
+    {description.length > 200 && (  // Show "Xem thêm" if the description is longer than 200 characters
+      <Text 
+        style={styles.showMoreText} 
+        onPress={toggleDescription}
+      >
+        {isExpanded ? " Thu gọn" : " Xem thêm"}
+      </Text>
+    )}
   </Text>
-            </View>
+</View>
 
 
             {/* Additional Info */}
@@ -363,11 +407,18 @@ const styles = StyleSheet.create({
     color: '#FFF',
     textAlign: 'center',
   },
-  author: {
-    fontSize: 18,
-    color: '#999',
-    marginTop: 8,
+  authorsContainer: {
+    marginVertical: 16,
   },
+  authorsTitle: {
+    fontSize: 16,
+    color:'#fff'
+  },
+  authorName: {
+    fontSize: 16,
+    color: '#999',
+  },
+
   ratingSection: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -450,7 +501,7 @@ const styles = StyleSheet.create({
   },
   description: {
     width: '100%',
-    marginTop: 32,
+    marginTop: 10,
   },
   descriptionTitle: {
     fontSize: 20,
@@ -474,6 +525,29 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 14,
   },
+  description: {
+  width: '100%',
+  marginTop: 32,
+  paddingHorizontal:0,  // Padding around the text
+},
+descriptionTitle: {
+  fontSize: 20,
+  fontWeight: 'bold',
+  color: '#FFF',
+  marginBottom: 12,
+},
+descriptionText: {
+  color: '#fff',
+  fontSize: 16,
+  lineHeight: 24,
+},
+showMoreText: {
+  color: '#999',
+  fontSize: 16,
+  fontWeight: 'bold',
+  textAlign: 'center',
+  marginTop: 8, // Adjust space above the "Xem thêm" text
+},
   infoValue: {
     color: '#FFF',
     fontSize: 14,
