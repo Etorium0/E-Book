@@ -395,7 +395,7 @@ export default function BookScreen() {
     categories.map((category, index) => (
       <Text key={index} style={styles.categoryName}>
         {category.name}
-        {index < categories.length - 1 ? ", " : ""}
+        {index < categories.length - 1 ? " " : ""}
       </Text>
     ))
   ) : (
@@ -586,22 +586,23 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   categories: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    gap: 10,
-    marginTop: 10,
-  },
-  categoryName: {
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-    borderRadius: 20,
-    color:'#fff',
-     borderColor: 'gray',
-     borderWidth: 0.5, 
-    
-  },
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  justifyContent: 'flex-start',
+  gap: 10,
+  marginTop: 10,
+},
+categoryName: {
+  backgroundColor: 'rgba(0, 0, 0, 0.25)', // Nền trong suốt với độ mờ
+  paddingHorizontal: 15,
+  paddingVertical: 5,
+  borderRadius: 20,
+  color: '#fff',
+  borderColor: 'gray',
+  borderWidth: 0.5,
+  flex: 0, // Không cố định chiều rộng
+  alignSelf: 'flex-start', // Căn trái
+},
   description: {
     width: '100%',
     marginTop: 0,
