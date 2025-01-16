@@ -1,19 +1,18 @@
-import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet, Alert, Dimensions } from 'react-native';
-import SummaryModal from '../components/SummaryModal';
+import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet, Alert, Dimensions, ActivityIndicator } from 'react-native';
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Cog6ToothIcon, BookmarkIcon as BookmarkOutline } from 'react-native-heroicons/outline';
+import { Cog6ToothIcon, BookmarkIcon as BookmarkOutline, DocumentTextIcon } from 'react-native-heroicons/outline';
 import { BookmarkIcon as BookmarkSolid } from 'react-native-heroicons/solid';
 import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { bookService } from '../backend/services/bookManagement';
 import { WebView } from 'react-native-webview';
+import { generateSummary } from '../services/geminiService';
 
 // Components
 import BackButton from '../components/BackButton';
-import FloatingActionButton from '../components/FloatingActionButton';
 
 export default function ReadBookScreen() {
   // Load fonts
@@ -31,7 +30,6 @@ export default function ReadBookScreen() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const scrollViewRef = useRef(null);
   const [totalPages, setTotalPages] = useState(1);
-  const [showSummary, setShowSummary] = useState(false);
   const [error, setError] = useState(null);
 
   // PDF states
@@ -44,7 +42,10 @@ export default function ReadBookScreen() {
   const [lineHeight, setLineHeight] = useState(1.5);
   const [fontFamily, setFontFamily] = useState('System');
 
-  const webViewRef = useRef(null);
+  // Summary states
+  const [showSummary, setShowSummary] = useState(false);
+  const [summary, setSummary] = useState('');
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   const fonts = [
     { label: 'Mặc định', value: 'System' },
@@ -85,27 +86,27 @@ export default function ReadBookScreen() {
         
         // Fetch và xử lý content
         for (let chapter of chaptersArray) {
-  if (chapter.content && chapter.content.startsWith('http')) {
-    try {
-      const response = await fetch(chapter.content);
-      const contentType = response.headers.get('content-type');
+          if (chapter.content && chapter.content.startsWith('http')) {
+            try {
+              const response = await fetch(chapter.content);
+              const contentType = response.headers.get('content-type');
 
-      if (contentType?.includes('text/plain') || chapter.content.endsWith('.txt')) {
-        const text = await response.text();
-        chapter.content = detectAndDecodeContent(text);
-      } else if (contentType?.includes('application/pdf')) {
-        setIsPDF(true);
-        setPdfUrl(chapter.content);
-        chapter.content = "Đang mở PDF viewer...";
-      } else {
-        chapter.content = "Không hỗ trợ định dạng này.";
-      }
-    } catch (error) {
-      console.error('Error fetching chapter content:', error);
-      chapter.content = "Không thể tải nội dung chương này";
-    }
-  }
-}
+              if (contentType?.includes('text/plain') || chapter.content.endsWith('.txt')) {
+                const text = await response.text();
+                chapter.content = detectAndDecodeContent(text);
+              } else if (contentType?.includes('application/pdf')) {
+                setIsPDF(true);
+                setPdfUrl(chapter.content);
+                chapter.content = "Đang mở PDF viewer...";
+              } else {
+                chapter.content = "Không hỗ trợ định dạng này.";
+              }
+            } catch (error) {
+              console.error('Error fetching chapter content:', error);
+              chapter.content = "Không thể tải nội dung chương này";
+            }
+          }
+        }
   
         setBookContent({
           title: bookData.name,
@@ -231,20 +232,74 @@ export default function ReadBookScreen() {
     }
   };
 
-  const handleAudioBook = () => {
-    Alert.alert("Thông báo", "Tính năng sách nói đang được phát triển");
-  };
-
-  const handleAISummary = () => {
-    if (!bookContent) {
+  const handleGenerateSummary = async () => {
+    try {
+      setLoadingSummary(true);
+      setShowSummary(true);
+      
+      let textToSummarize = '';
+      
+      if (isPDF) {
+        try {
+          // Fetch PDF content
+          const response = await fetch(pdfUrl);
+          const pdfBuffer = await response.arrayBuffer();
+          
+          // Convert ArrayBuffer to Base64 in React Native
+          const bytes = new Uint8Array(pdfBuffer);
+          const len = bytes.byteLength;
+          let binary = '';
+          for (let i = 0; i < len; i++) {
+              binary += String.fromCharCode(bytes[i]);
+          }
+          const pdfBase64 = btoa(binary);
+          
+          // Call API to extract text from PDF
+          const extractResponse = await fetch('YOUR_PDF_EXTRACT_API_ENDPOINT', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              pdf: pdfBase64
+            })
+          });
+          
+          if (!extractResponse.ok) {
+            throw new Error('Failed to extract text from PDF');
+          }
+          
+          const { text } = await extractResponse.json();
+          textToSummarize = text;
+          
+        } catch (error) {
+          console.error('Error extracting PDF text:', error);
+          Alert.alert(
+            "Lỗi",
+            "Không thể trích xuất nội dung từ PDF. Vui lòng thử lại sau."
+          );
+          setLoadingSummary(false);
+          setShowSummary(false);
+          return;
+        }
+      } else {
+        textToSummarize = bookContent.chapters
+          .map(chapter => `${chapter.title}\n${chapter.content}`)
+          .join('\n\n');
+      }
+      
+      const summaryResult = await generateSummary(textToSummarize);
+      setSummary(summaryResult);
+    } catch (error) {
+      console.error('Error generating summary:', error);
       Alert.alert(
-        "Thông báo",
-        "Không thể tạo tóm tắt khi chưa có nội dung sách.",
-        [{ text: "OK" }]
+        "Lỗi",
+        "Không thể tạo tóm tắt. Vui lòng thử lại sau."
       );
-      return;
+      setShowSummary(false);
+    } finally {
+      setLoadingSummary(false);
     }
-    setShowSummary(true);
   };
 
   if (!fontsLoaded) {
@@ -266,6 +321,12 @@ export default function ReadBookScreen() {
         <View style={styles.header}>
           <BackButton />
           <View style={styles.headerRight}>
+            <TouchableOpacity 
+              onPress={handleGenerateSummary}
+              style={styles.headerButton}
+            >
+              <DocumentTextIcon size={24} color="black" />
+            </TouchableOpacity>
             <TouchableOpacity 
               onPress={toggleBookmark}
               style={styles.headerButton}
@@ -296,58 +357,30 @@ export default function ReadBookScreen() {
 
         {/* Content */}
         {isPDF ? (
-        <View style={styles.pdfContainer}>
+          <View style={styles.pdfContainer}>
             {webViewLoading && (
-            <View style={[styles.loadingContainer, { position: 'absolute', zIndex: 1, width: '100%', height: '100%' }]}>
+              <View style={[styles.loadingContainer, { position: 'absolute', zIndex: 1 }]}>
                 <Text>Đang tải PDF...</Text>
-            </View>
+              </View>
             )}
             <WebView
-            source={{
-                uri: `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(pdfUrl)}`,
-            }}
-            style={styles.webview}
-            onLoadStart={() => setWebViewLoading(true)}
-            onLoadEnd={() => setWebViewLoading(false)}
-            onError={(syntheticEvent) => {
+              source={{
+                uri: `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(pdfUrl)}`
+              }}
+              style={styles.webview}
+              onLoadStart={() => setWebViewLoading(true)}
+              onLoadEnd={() => setWebViewLoading(false)}
+              onError={(syntheticEvent) => {
                 const { nativeEvent } = syntheticEvent;
                 console.warn('WebView error: ', nativeEvent);
-                Alert.alert(
-                "Lỗi",
-                "Không thể tải file PDF. Bạn có muốn thử tải lại không?",
-                [
-                    {
-                    text: "Hủy",
-                    style: "cancel"
-                    },
-                    { 
-                    text: "Tải lại", 
-                    onPress: () => {
-                        // Reset WebView
-                        setWebViewLoading(true);
-                        webViewRef.current?.reload();
-                    }
-                    }
-                ]
-                );
-            }}
-            ref={webViewRef}
-            startInLoadingState={true}
-            scalesPageToFit={true}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            bounces={false}
-            showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
-            scrollEnabled={true}
-            // Thêm gesture zoom
-            injectedJavaScript={`
-                document.addEventListener('gesturestart', function(e) {
-                e.preventDefault();
-                });
-            `}
+                setError('Không thể tải file PDF. Vui lòng thử lại sau.');
+              }}
+              startInLoadingState={true}
+              scalesPageToFit={true}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
             />
-        </View>
+          </View>
         ) : (
           <ScrollView 
             ref={scrollViewRef}
@@ -419,7 +452,7 @@ export default function ReadBookScreen() {
               </View>
 
               {/* Line Height Settings */}
-            <View style={styles.settingSection}>
+              <View style={styles.settingSection}>
                 <Text style={styles.settingLabel}>Khoảng cách dòng</Text>
                 <View style={styles.settingControls}>
                   <TouchableOpacity 
@@ -473,20 +506,38 @@ export default function ReadBookScreen() {
         </Modal>
 
         {/* Summary Modal */}
-        {showSummary && (
-          <SummaryModal 
-            visible={showSummary}
-            onClose={() => setShowSummary(false)}
-            bookContent={bookContent}
-          />
-        )}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={showSummary}
+          onRequestClose={() => setShowSummary(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Tóm tắt nội dung</Text>
+              
+              <ScrollView style={styles.summaryContent}>
+                {loadingSummary ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#3B82F6" />
+                    <Text style={styles.loadingText}>Đang tạo tóm tắt...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.summaryText}>{summary}</Text>
+                )}
+              </ScrollView>
+
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setShowSummary(false)}
+              >
+                <Text style={styles.closeButtonText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
       </SafeAreaView>
-      
-      {/* Floating Action Button */}
-      <FloatingActionButton 
-        onAudioBook={handleAudioBook}
-        onAISummary={handleAISummary}
-      />
     </GestureHandlerRootView>
   );
 }
@@ -524,6 +575,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#6B7280',
   },
   errorContainer: {
     flex: 1,
@@ -642,5 +697,14 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  summaryContent: {
+    maxHeight: '80%',
+    paddingHorizontal: 16,
+  },
+  summaryText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#4B5563',
   },
 });
