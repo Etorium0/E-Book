@@ -58,7 +58,20 @@ export const bookService = {
       return { success: false, message: error.message };
     }
   },
+async getCategoryById(categoryId) {
+    try {
+      const categoryRef = ref(db, `categories/${categoryId}`);
+      const snapshot = await get(categoryRef);
 
+      if (snapshot.exists()) {
+        return { success: true, data: snapshot.val() };
+      } else {
+        return { success: false, message: 'Không tìm thấy thể loại' };
+      }
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  },
   // Xóa sách
   async deleteBook(bookId) {
     const bookRef = ref(db, `books/${bookId}`);
@@ -109,6 +122,20 @@ export const bookService = {
     }
   },
 
+  async getAuthorById(authorId) {
+    try {
+      const authorRef = ref(db, `authors/${authorId}`);
+      const snapshot = await get(authorRef);
+      
+      if (snapshot.exists()) {
+        return { success: true, data: snapshot.val() };
+      } else {
+        return { success: false, message: 'Không tìm thấy tác giả' };
+      }
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  },
   // Lấy sách mới (theo thời gian tạo)
   async getUpcomingBooks(limit = 3) {
     try {

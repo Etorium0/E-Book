@@ -1,42 +1,41 @@
 import { db } from '../firebase/FirebaseConfig';
-import { ref, get, set, update, remove } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 
-// Lấy danh sách thể loại sách
-export const getCategories = async () => {
+// Lấy tất cả danh sách thể loại và xử lý từng thể loại
+export const getAllCategories = async () => {
   const categoriesRef = ref(db, 'categories');
-  const snapshot = await get(categoriesRef);
-  return snapshot.val();
-};
-
-// Thêm thể loại mới
-export const addCategory = async (categoryId, categoryData) => {
-  const categoryRef = ref(db, `categories/${categoryId}`);
   try {
-    await set(categoryRef, categoryData);
-    return { success: true, message: 'Thể loại đã được thêm thành công' };
-  } catch (error) {
-    return { success: false, message: error.message };
-  }
-};
+    const snapshot = await get(categoriesRef);
+    const categories = snapshot.val();
 
-// Cập nhật thông tin thể loại
-export const updateCategory = async (categoryId, updatedData) => {
-  const categoryRef = ref(db, `categories/${categoryId}`);
-  try {
-    await update(categoryRef, updatedData);
-    return { success: true, message: 'Thông tin thể loại đã được cập nhật' };
-  } catch (error) {
-    return { success: false, message: error.message };
-  }
-};
+    if (categories) {
+      const categoryDetails = [];
 
-// Xóa thể loại
-export const deleteCategory = async (categoryId) => {
-  const categoryRef = ref(db, `categories/${categoryId}`);
-  try {
-    await remove(categoryRef);
-    return { success: true, message: 'Thể loại đã được xóa' };
+      // Lặp qua từng thể loại và lấy thông tin chi tiết
+      for (const categoryId in categories) {
+        const categoryData = categories[categoryId];
+        console.log(`Processing category ${categoryId}:`, categoryData); // Log category data
+
+        // Xử lý mỗi thể loại ở đây
+        categoryDetails.push({
+          id: categoryId,
+          name: categoryData.name,
+          description: categoryData.description,
+          keyword: categoryData.keyword,
+          bookCount: categoryData.book_count,
+          createdAt: categoryData.created_at,
+          updatedAt: categoryData.updated_at,
+        });
+      }
+
+      console.log("All categories processed:", categoryDetails); // Log all processed categories
+      return categoryDetails; // Return the list of processed categories
+    } else {
+      console.log('No categories found.');
+      return []; // Return empty if no categories exist
+    }
   } catch (error) {
-    return { success: false, message: error.message };
+    console.error("Error fetching categories:", error);
+    return { success: false, message: error.message }; // Handle any errors
   }
 };

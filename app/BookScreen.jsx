@@ -18,8 +18,13 @@ export default function BookScreen() {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(""); // State for description
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isReadingLoading, setIsReadingLoading] = useState(false);
+  const [authors, setAuthors] = useState([]);
+  const [categories, setCategories] = useState([]);
+
+
 
   useEffect(() => {
     console.log("Book ID from params:", params.id);
@@ -40,9 +45,13 @@ export default function BookScreen() {
             favoriteCount: bookData.favoriteCount || 0,
             rating: bookData.rating || 0,
             categories: bookData.categories || [],
-            descriptionFile: bookData.description
+            descriptionFile: bookData.description,
+            authors: bookData.authors || [], // Assuming description is a file URL
           };
           setBook(formattedBook);
+          fetchAuthors(bookData.authors);
+          fetchCategories(bookData.categories);
+          // Fetch description from Firebase Storage if exists
           if (bookData.description) {
             fetchDescription(bookData.description);
           }
@@ -54,7 +63,45 @@ export default function BookScreen() {
       setLoading(false);
     }
   };
-
+  const fetchCategories = async (categoryIds) => {
+    console.log("Categories IDs:", categoryIds);
+  try {
+    const categoryList = [];
+    for (const categoryId in categoryIds) { // Nếu categoryIds là mảng
+      const category = await bookService.getCategoryById(categoryId);
+      console.log("Category fetched:", category);
+      if (category && category.data && category.data.name) {
+        categoryList.push(category.data);
+      } else {
+        console.log("Tên thể loại bị thiếu hoặc không tồn tại cho ID:", categoryId);
+      }
+    }
+    setCategories (categoryList);
+  } catch (error) {
+    console.error("Lỗi khi lấy thông tin thể loại:", error);
+  }
+};
+   const fetchAuthors = async (authorIds) => {
+  console.log("Author IDs:", authorIds);  // In ra authorIds để kiểm tra
+  try {
+    const authorList = [];
+    for (const authorId in authorIds) {
+      if (authorIds[authorId]) {
+        const author = await bookService.getAuthorById(authorId);
+        console.log("Author object:", author);  // Kiểm tra đối tượng tác giả
+        if (author && author.data && author.data.name) {  // Kiểm tra trường name trong data
+          authorList.push(author.data);  // Đảm bảo rằng bạn đang lấy đúng trường data
+        } else {
+          console.log("Tên tác giả bị thiếu cho ID:", authorId);
+        }
+      }
+    }
+    setAuthors(authorList);
+  } catch (error) {
+    console.error("Lỗi khi lấy thông tin tác giả:", error);
+  }
+};
+  
   const fetchDescription = async (fileUrl) => {
     try {
       const storage = getStorage();
@@ -67,6 +114,11 @@ export default function BookScreen() {
       console.error("Error fetching description:", error);
     }
   };
+
+  const toggleDescription = () => {
+  setIsExpanded(!isExpanded);
+};
+
 
   const handleFavorite = async () => {
     if (!auth.currentUser) {
@@ -255,7 +307,14 @@ export default function BookScreen() {
 
           <View style={styles.detailsContainer}>
             <Text style={styles.title}>{book.name}</Text>
-            <Text style={styles.author}>{book.author}</Text>
+            <View style={styles.authorsContainer}>
+          <Text style={styles.authorsTitle}>Tác giả: {authors.length > 0 ? authors.map((author, index) => (
+      <Text key={index} style={styles.authorName}>
+        {author.name}{index < authors.length - 1 ? ", " : ""}
+      </Text>
+    )) : " Chưa có tác giả"}
+  </Text>
+</View>
 
             <View style={styles.ratingSection}>
               <View style={styles.stars}>
@@ -314,20 +373,36 @@ export default function BookScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.categories}>
-              {Array.isArray(book.categories) && book.categories.map((category, index) => (
-                <TouchableOpacity key={index} style={styles.categoryTag}>
-                  <Text style={styles.categoryText}>{category}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
 
             <View style={styles.description}>
-              <Text style={styles.descriptionTitle}>Giới thiệu</Text>
-              <Text style={styles.descriptionText}>
-                {typeof description === 'string' ? description : "Không có mô tả"}
-              </Text>
-            </View>
+  <Text style={styles.descriptionTitle}>Giới thiệu</Text>
+  <Text style={styles.descriptionText}>
+    {isExpanded 
+      ? description 
+      : `${description.slice(0, 200)}...`}
+    {description.length > 200 && (  // Show "Xem thêm" if the description is longer than 200 characters
+      <Text 
+        style={styles.showMoreText} 
+        onPress={toggleDescription}
+      >
+        {isExpanded ? " Thu gọn" : " Xem thêm"}
+      </Text>
+    )}
+  </Text>
+</View>     
+ <View style={styles.categories}>
+  {categories.length > 0 ? (
+    categories.map((category, index) => (
+      <Text key={index} style={styles.categoryName}>
+        {category.name}
+        {index < categories.length - 1 ? " " : ""}
+      </Text>
+    ))
+  ) : (
+    <Text>Chưa có tác giả</Text>
+  )}
+</View>
+
 
             {book.publishDate && (
               <View style={styles.additionalInfo}>
@@ -420,7 +495,6 @@ const styles = StyleSheet.create({
   },
   detailsContainer: {
     width: '100%',
-    alignItems: 'center',
     marginTop: 24,
   },
   title: {
@@ -429,18 +503,28 @@ const styles = StyleSheet.create({
     color: '#FFF',
     textAlign: 'center',
   },
-  author: {
-    fontSize: 18,
-    color: '#999',
-    marginTop: 8,
+  authorsContainer: {
+     alignItems: 'center',
+    marginVertical: 16,
   },
+  authorsTitle: {
+    fontSize: 16,
+    color:'#fff'
+  },
+  authorName: {
+    fontSize: 16,
+    color: '#999',
+  },
+
   ratingSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    justifyContent: 'center',
+    marginTop: 0,
     gap: 8,
   },
   stars: {
+    alignItems: 'center',
     flexDirection: 'row',
     gap: 4,
   },
@@ -453,7 +537,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    marginTop: 20,
+    marginTop: 5,
     paddingHorizontal: 20,
   },
   statItem: {
@@ -474,7 +558,7 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingVertical: 16,
     borderRadius: 30,
-    marginTop: 24,
+    marginTop: 10,
   },
   readButtonDisabled: {
     opacity: 0.7,
@@ -491,7 +575,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 40,
-    marginTop: 24,
+    marginTop: 10,
   },
   iconButton: {
     backgroundColor: '#333',
@@ -502,28 +586,29 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   categories: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 10,
-    marginTop: 24,
-  },
-  categoryTag: {
-    backgroundColor: '#333',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  categoryText: {
-    color: '#FFF',
-    fontSize: 14,
-  },
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  justifyContent: 'flex-start',
+  gap: 10,
+  marginTop: 10,
+},
+categoryName: {
+  backgroundColor: 'rgba(0, 0, 0, 0.25)', // Nền trong suốt với độ mờ
+  paddingHorizontal: 15,
+  paddingVertical: 5,
+  borderRadius: 20,
+  color: '#fff',
+  borderColor: 'gray',
+  borderWidth: 0.5,
+  flex: 0, // Không cố định chiều rộng
+  alignSelf: 'flex-start', // Căn trái
+},
   description: {
     width: '100%',
-    marginTop: 32,
+    marginTop: 0,
   },
   descriptionTitle: {
-    fontSize: 20,
+    fontSize: 10,
     fontWeight: 'bold',
     color: '#FFF',
     marginBottom: 12,
@@ -544,6 +629,29 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 14,
   },
+  description: {
+  width: '100%',
+  marginTop: 10,
+  paddingHorizontal:0,  // Padding around the text
+},
+descriptionTitle: {
+  fontSize: 20,
+  fontWeight: 'bold',
+  color: '#FFF',
+  marginBottom: 12,
+},
+descriptionText: {
+  color: '#fff',
+  fontSize: 16,
+  lineHeight: 24,
+},
+showMoreText: {
+  color: '#999',
+  fontSize: 16,
+  fontWeight: 'bold',
+  textAlign: 'center',
+  marginTop: 8, // Adjust space above the "Xem thêm" text
+},
   infoValue: {
     color: '#FFF',
     fontSize: 14,
