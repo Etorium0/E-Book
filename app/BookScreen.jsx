@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Dimensions, Platform, Image, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Dimensions, Platform, Image, StyleSheet, Alert } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,6 +6,8 @@ import { HeartIcon, ArrowDownTrayIcon, EllipsisHorizontalIcon, ShareIcon } from 
 import { StarIcon } from 'react-native-heroicons/solid';
 import BackButton from '../components/BackButton';
 import { bookService } from '../backend/services/bookManagement';
+import { readingService } from '../backend/services/readingService';
+import { auth } from '../backend/firebase/FirebaseConfig';
 import { getStorage, ref, getDownloadURL } from 'firebase/storage'; 
 
 const {width, height} = Dimensions.get('window');
@@ -21,6 +23,7 @@ export default function BookScreen() {
 const [authors, setAuthors] = useState([]);
 
 
+
   useEffect(() => {
     console.log("Book ID from params:", params.id);
     fetchBookDetails();
@@ -29,11 +32,9 @@ const [authors, setAuthors] = useState([]);
   const fetchBookDetails = async () => {
     try {
       const bookRef = await bookService.getBooks();
-      // Ensure bookRef.data is valid and an object
       if (bookRef && bookRef.data) {
         const bookData = bookRef.data[params.id];
         if (bookData) {
-          // Format book data
           const formattedBook = {
             ...bookData,
             id: params.id,
@@ -82,14 +83,12 @@ const [authors, setAuthors] = useState([]);
   
   const fetchDescription = async (fileUrl) => {
     try {
-      const storage = getStorage(); // Initialize Firebase Storage
+      const storage = getStorage();
       const fileRef = ref(storage, fileUrl);
-      const url = await getDownloadURL(fileRef); // Get the download URL
-
-      // Fetch the content from the file
+      const url = await getDownloadURL(fileRef);
       const response = await fetch(url);
-      const text = await response.text(); // Read the file content
-      setDescription(text); // Update the state with description content
+      const text = await response.text();
+      setDescription(text);
     } catch (error) {
       console.error("Error fetching description:", error);
     }
@@ -99,7 +98,20 @@ const [authors, setAuthors] = useState([]);
   setIsExpanded(!isExpanded);
 };
 
+
   const handleFavorite = async () => {
+    if (!auth.currentUser) {
+      Alert.alert(
+        "Thông báo",
+        "Bạn cần đăng nhập để thêm vào yêu thích",
+        [
+          { text: "Đăng nhập", onPress: () => router.push('/Login') },
+          { text: "Hủy", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
     try {
       await bookService.updateBook(params.id, {
         favorite: !book?.favorite,
@@ -112,10 +124,23 @@ const [authors, setAuthors] = useState([]);
       }));
     } catch (error) {
       console.error("Error updating favorite:", error);
+      Alert.alert("Lỗi", "Không thể cập nhật trạng thái yêu thích");
     }
   };
 
   const handleDownload = async () => {
+    if (!auth.currentUser) {
+      Alert.alert(
+        "Thông báo",
+        "Bạn cần đăng nhập để tải sách",
+        [
+          { text: "Đăng nhập", onPress: () => router.push('/Login') },
+          { text: "Hủy", style: "cancel" }
+        ]
+      );
+      return;
+    }
+
     if (downloading) return;
     
     try {
@@ -127,9 +152,10 @@ const [authors, setAuthors] = useState([]);
         ...prev,
         downloads: (prev.downloads || 0) + 1
       }));
-      // Thêm logic tải sách ở đây
+      Alert.alert("Thành công", "Sách đã được tải xuống");
     } catch (error) {
       console.error("Error updating downloads:", error);
+      Alert.alert("Lỗi", "Không thể tải sách");
     } finally {
       setDownloading(false);
     }
@@ -137,7 +163,6 @@ const [authors, setAuthors] = useState([]);
 
   const handleShare = async () => {
     try {
-      // Thêm logic chia sẻ sách
       await bookService.updateBook(params.id, {
         shares: (book?.shares || 0) + 1
       });
@@ -145,27 +170,77 @@ const [authors, setAuthors] = useState([]);
         ...prev,
         shares: (prev.shares || 0) + 1
       }));
+      Alert.alert("Thành công", "Đã chia sẻ sách");
     } catch (error) {
       console.error("Error sharing book:", error);
+      Alert.alert("Lỗi", "Không thể chia sẻ sách");
     }
   };
 
-  const handleReadBook = () => {
-    // Cập nhật lượt xem trước khi chuyển trang
+  const handleReadBook = async () => {
+    // Kiểm tra user đã đăng nhập chưa
+    if (!auth.currentUser) {
+      Alert.alert(
+        "Thông báo",
+        "Bạn cần đăng nhập để đọc sách",
+        [
+          { 
+            text: "Đăng nhập", 
+            onPress: () => router.push('/Login')
+          },
+          {
+            text: "Hủy",
+            style: "cancel"
+          }
+        ]
+      );
+      return;
+    }
+
+    setIsReadingLoading(true);
     try {
-      bookService.updateBook(params.id, {
+      // Cập nhật lượt xem
+      await bookService.updateBook(params.id, {
         view: (book?.view || 0) + 1
       });
+
+      // Thêm sách vào trạng thái đang đọc
+      const result = await readingService.addToReading(params.id);
+      if (!result.success) {
+        Alert.alert(
+          "Lỗi",
+          "Không thể thêm sách vào danh sách đang đọc. Vui lòng thử lại sau.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
+      // Cập nhật state book
+      setBook(prev => ({
+        ...prev,
+        view: (prev?.view || 0) + 1,
+        lastRead: Date.now()
+      }));
+
+      // Chuyển đến trang đọc sách
       router.push({
         pathname: "/ReadBookScreen",
         params: {
           id: params.id,
-          title: book.title,
-          content: book.content
+          title: book.name,
+          content: book.chapters.chapterId1.content
         }
       });
+
     } catch (error) {
-      console.error("Error updating view count:", error);
+      console.error("Lỗi khi bắt đầu đọc sách:", error);
+      Alert.alert(
+        "Lỗi",
+        "Đã có lỗi xảy ra khi truy cập sách. Vui lòng thử lại sau.",
+        [{ text: "OK" }]
+      );
+    } finally {
+      setIsReadingLoading(false);
     }
   };
 
@@ -187,7 +262,6 @@ const [authors, setAuthors] = useState([]);
 
   return (
     <View style={styles.container}>
-      {/* Background Image with Blur */}
       <Image 
         source={{ uri: book.image }}
         style={styles.backgroundImage}
@@ -196,7 +270,6 @@ const [authors, setAuthors] = useState([]);
       <View style={styles.gradientOverlay} />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <SafeAreaView style={styles.header}>
           <BackButton style={styles.headerIcon} />
           <TouchableOpacity onPress={handleShare}>
@@ -204,16 +277,13 @@ const [authors, setAuthors] = useState([]);
           </TouchableOpacity>
         </SafeAreaView>
 
-        {/* Book Content */}
         <View style={styles.content}>
-          {/* Cover Image */}
           <Image 
             source={{ uri: book.image }}
             style={styles.coverImage}
             resizeMode="contain"
           />
 
-          {/* Book Details */}
           <View style={styles.detailsContainer}>
             <Text style={styles.title}>{book.name}</Text>
             <View style={styles.authorsContainer}>
@@ -225,7 +295,6 @@ const [authors, setAuthors] = useState([]);
   </Text>
 </View>
 
-            {/* Rating Section */}
             <View style={styles.ratingSection}>
               <View style={styles.stars}>
                 {[1,2,3,4,5].map((_, index) => (
@@ -239,7 +308,6 @@ const [authors, setAuthors] = useState([]);
               <Text style={styles.ratingText}>{book.rating?.toFixed(1) || "0.0"}</Text>
             </View>
 
-            {/* Stats Section */}
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>{book.view || 0}</Text>
@@ -255,12 +323,17 @@ const [authors, setAuthors] = useState([]);
               </View>
             </View>
 
-            {/* Action Buttons */}
             <TouchableOpacity 
-              style={styles.readButton}
+              style={[
+                styles.readButton,
+                isReadingLoading && styles.readButtonDisabled
+              ]}
               onPress={handleReadBook}
+              disabled={isReadingLoading}
             >
-              <Text style={styles.readButtonText}>ĐỌC SÁCH</Text>
+              <Text style={styles.readButtonText}>
+                {isReadingLoading ? "ĐANG XỬ LÝ..." : "ĐỌC SÁCH"}
+              </Text>
             </TouchableOpacity>
 
             <View style={styles.actionButtons}>
@@ -279,7 +352,6 @@ const [authors, setAuthors] = useState([]);
               </TouchableOpacity>
             </View>
 
-            {/* Categories */}
             <View style={styles.categories}>
               {Array.isArray(book.categories) && book.categories.map((category, index) => (
                 <TouchableOpacity key={index} style={styles.categoryTag}>
@@ -303,10 +375,8 @@ const [authors, setAuthors] = useState([]);
       </Text>
     )}
   </Text>
-</View>
+</View>     
 
-
-            {/* Additional Info */}
             {book.publishDate && (
               <View style={styles.additionalInfo}>
                 <Text style={styles.infoLabel}>Ngày xuất bản:</Text>
@@ -460,6 +530,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 30,
     marginTop: 24,
+  },
+  readButtonDisabled: {
+    opacity: 0.7,
+    backgroundColor: '#808080',
   },
   readButtonText: {
     color: '#FFF',
