@@ -5,7 +5,7 @@ export const libraryService = {
   // Lấy danh sách sách đang đọc
   async getReadingBooks(userId) {
     try {
-      const userRef = ref(db, `users/${userId}/toreading`);
+      const userRef = ref(db, `users/${userId}/reading`); // Sửa từ toreading thành reading
       const snapshot = await get(userRef);
       if (snapshot.exists()) {
         return Object.keys(snapshot.val()).length;

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { auth } from '../backend/firebase/FirebaseConfig';
 import { libraryService } from '../backend/services/libraryService';
+import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function LibraryScreen() {
   const [bookCounts, setBookCounts] = useState({
@@ -11,6 +13,8 @@ function LibraryScreen() {
     finished: 0,
     favorites: 0
   });
+
+  const [loading, setLoading] = useState(true);
 
   const categories = [
     { id: '1', title: 'Đang đọc', icon: 'book', color: '#4CAF50', count: bookCounts.reading },
@@ -43,13 +47,30 @@ function LibraryScreen() {
         }
       } catch (error) {
         console.error("Error loading book counts:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
     loadBookCounts();
   }, []);
 
+  const handleCategoryPress = (categoryId) => {
+    router.push({
+      pathname: "/BookListScreen",
+      params: { categoryId }
+    });
+  };
+
   const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.loadingText}>Đang tải...</Text>
+        </View>
+      );
+    }
+
     const totalBooks = Object.values(bookCounts).reduce((a, b) => a + b, 0);
     
     if (totalBooks === 0) {
@@ -63,27 +84,35 @@ function LibraryScreen() {
       );
     }
 
-    return categories.map((item) => (
-      <TouchableOpacity key={item.id} style={styles.categoryItem}>
-        <View style={styles.iconContainer}>
-          <Icon name={item.icon} size={24} color={item.color} />
-        </View>
-        <View style={styles.textContainer}>
-          <Text style={styles.categoryTitle}>{item.title}</Text>
-          <Text style={styles.bookCount}>{item.count} cuốn sách</Text>
-        </View>
-        <Icon name="chevron-right" size={24} color="#666" />
-      </TouchableOpacity>
-    ));
+    return (
+      <ScrollView style={styles.scrollView}>
+        {categories.map((item) => (
+          <TouchableOpacity 
+            key={item.id} 
+            style={styles.categoryItem}
+            onPress={() => handleCategoryPress(item.id)}
+          >
+            <View style={styles.iconContainer}>
+              <Icon name={item.icon} size={24} color={item.color} />
+            </View>
+            <View style={styles.textContainer}>
+              <Text style={styles.categoryTitle}>{item.title}</Text>
+              <Text style={styles.bookCount}>{item.count} cuốn sách</Text>
+            </View>
+            <Icon name="chevron-right" size={24} color="#666" />
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    );
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Thư viện của tôi</Text>
       </View>
       {renderContent()}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -92,9 +121,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
+  scrollView: {
+    flex: 1,
+  },
   header: {
     padding: 16,
-    paddingTop: 60,
+    paddingTop: 20,
     borderBottomWidth: 0.5,
     borderBottomColor: '#333',
   },
@@ -144,6 +176,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
+  loadingText: {
+    fontSize: 16,
+    color: '#666666',
+  }
 });
 
 export default LibraryScreen;
