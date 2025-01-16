@@ -44,6 +44,8 @@ export default function ReadBookScreen() {
   const [lineHeight, setLineHeight] = useState(1.5);
   const [fontFamily, setFontFamily] = useState('System');
 
+  const webViewRef = useRef(null);
+
   const fonts = [
     { label: 'Mặc định', value: 'System' },
     { label: 'Mono', value: 'Mono' },
@@ -294,30 +296,58 @@ export default function ReadBookScreen() {
 
         {/* Content */}
         {isPDF ? (
-          <View style={styles.pdfContainer}>
+        <View style={styles.pdfContainer}>
             {webViewLoading && (
-              <View style={[styles.loadingContainer, { position: 'absolute', zIndex: 1 }]}>
+            <View style={[styles.loadingContainer, { position: 'absolute', zIndex: 1, width: '100%', height: '100%' }]}>
                 <Text>Đang tải PDF...</Text>
-              </View>
+            </View>
             )}
             <WebView
-              source={{
-                uri: `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(pdfUrl)}`
-              }}
-              style={styles.webview}
-              onLoadStart={() => setWebViewLoading(true)}
-              onLoadEnd={() => setWebViewLoading(false)}
-              onError={(syntheticEvent) => {
+            source={{
+                uri: `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(pdfUrl)}`,
+            }}
+            style={styles.webview}
+            onLoadStart={() => setWebViewLoading(true)}
+            onLoadEnd={() => setWebViewLoading(false)}
+            onError={(syntheticEvent) => {
                 const { nativeEvent } = syntheticEvent;
                 console.warn('WebView error: ', nativeEvent);
-                setError('Không thể tải file PDF. Vui lòng thử lại sau.');
-              }}
-              startInLoadingState={true}
-              scalesPageToFit={true}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
+                Alert.alert(
+                "Lỗi",
+                "Không thể tải file PDF. Bạn có muốn thử tải lại không?",
+                [
+                    {
+                    text: "Hủy",
+                    style: "cancel"
+                    },
+                    { 
+                    text: "Tải lại", 
+                    onPress: () => {
+                        // Reset WebView
+                        setWebViewLoading(true);
+                        webViewRef.current?.reload();
+                    }
+                    }
+                ]
+                );
+            }}
+            ref={webViewRef}
+            startInLoadingState={true}
+            scalesPageToFit={true}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            bounces={false}
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={true}
+            // Thêm gesture zoom
+            injectedJavaScript={`
+                document.addEventListener('gesturestart', function(e) {
+                e.preventDefault();
+                });
+            `}
             />
-          </View>
+        </View>
         ) : (
           <ScrollView 
             ref={scrollViewRef}
