@@ -58,7 +58,20 @@ export const bookService = {
       return { success: false, message: error.message };
     }
   },
+async getCategoryById(categoryId) {
+    try {
+      const categoryRef = ref(db, `categories/${categoryId}`);
+      const snapshot = await get(categoryRef);
 
+      if (snapshot.exists()) {
+        return { success: true, data: snapshot.val() };
+      } else {
+        return { success: false, message: 'Không tìm thấy thể loại' };
+      }
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  },
   // Xóa sách
   async deleteBook(bookId) {
     const bookRef = ref(db, `books/${bookId}`);

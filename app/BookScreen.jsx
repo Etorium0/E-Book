@@ -20,7 +20,9 @@ export default function BookScreen() {
   const [downloading, setDownloading] = useState(false);
   const [description, setDescription] = useState(""); // State for description
   const [isExpanded, setIsExpanded] = useState(false);
-const [authors, setAuthors] = useState([]);
+  const [isReadingLoading, setIsReadingLoading] = useState(false);
+  const [authors, setAuthors] = useState([]);
+  const [categories, setCategories] = useState([]);
 
 
 
@@ -48,6 +50,7 @@ const [authors, setAuthors] = useState([]);
           };
           setBook(formattedBook);
           fetchAuthors(bookData.authors);
+          fetchCategories(bookData.categories);
           // Fetch description from Firebase Storage if exists
           if (bookData.description) {
             fetchDescription(bookData.description);
@@ -60,6 +63,24 @@ const [authors, setAuthors] = useState([]);
       setLoading(false);
     }
   };
+  const fetchCategories = async (categoryIds) => {
+    console.log("Categories IDs:", categoryIds);
+  try {
+    const categoryList = [];
+    for (const categoryId in categoryIds) { // Nếu categoryIds là mảng
+      const category = await bookService.getCategoryById(categoryId);
+      console.log("Category fetched:", category);
+      if (category && category.data && category.data.name) {
+        categoryList.push(category.data);
+      } else {
+        console.log("Tên thể loại bị thiếu hoặc không tồn tại cho ID:", categoryId);
+      }
+    }
+    setCategories (categoryList);
+  } catch (error) {
+    console.error("Lỗi khi lấy thông tin thể loại:", error);
+  }
+};
    const fetchAuthors = async (authorIds) => {
   console.log("Author IDs:", authorIds);  // In ra authorIds để kiểm tra
   try {
@@ -352,13 +373,6 @@ const [authors, setAuthors] = useState([]);
               </TouchableOpacity>
             </View>
 
-            <View style={styles.categories}>
-              {Array.isArray(book.categories) && book.categories.map((category, index) => (
-                <TouchableOpacity key={index} style={styles.categoryTag}>
-                  <Text style={styles.categoryText}>{category}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
 
             <View style={styles.description}>
   <Text style={styles.descriptionTitle}>Giới thiệu</Text>
@@ -376,6 +390,19 @@ const [authors, setAuthors] = useState([]);
     )}
   </Text>
 </View>     
+ <View style={styles.categories}>
+  {categories.length > 0 ? (
+    categories.map((category, index) => (
+      <Text key={index} style={styles.categoryName}>
+        {category.name}
+        {index < categories.length - 1 ? ", " : ""}
+      </Text>
+    ))
+  ) : (
+    <Text>Chưa có tác giả</Text>
+  )}
+</View>
+
 
             {book.publishDate && (
               <View style={styles.additionalInfo}>
@@ -468,7 +495,6 @@ const styles = StyleSheet.create({
   },
   detailsContainer: {
     width: '100%',
-    alignItems: 'center',
     marginTop: 24,
   },
   title: {
@@ -478,6 +504,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   authorsContainer: {
+     alignItems: 'center',
     marginVertical: 16,
   },
   authorsTitle: {
@@ -492,10 +519,12 @@ const styles = StyleSheet.create({
   ratingSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    justifyContent: 'center',
+    marginTop: 0,
     gap: 8,
   },
   stars: {
+    alignItems: 'center',
     flexDirection: 'row',
     gap: 4,
   },
@@ -508,7 +537,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    marginTop: 20,
+    marginTop: 5,
     paddingHorizontal: 20,
   },
   statItem: {
@@ -529,7 +558,7 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingVertical: 16,
     borderRadius: 30,
-    marginTop: 24,
+    marginTop: 10,
   },
   readButtonDisabled: {
     opacity: 0.7,
@@ -546,7 +575,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 40,
-    marginTop: 24,
+    marginTop: 10,
   },
   iconButton: {
     backgroundColor: '#333',
@@ -559,26 +588,26 @@ const styles = StyleSheet.create({
   categories: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 10,
-    marginTop: 24,
+    marginTop: 10,
   },
-  categoryTag: {
-    backgroundColor: '#333',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+  categoryName: {
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    paddingHorizontal: 15,
+    paddingVertical: 5,
     borderRadius: 20,
-  },
-  categoryText: {
-    color: '#FFF',
-    fontSize: 14,
+    color:'#fff',
+     borderColor: 'gray',
+     borderWidth: 0.5, 
+    
   },
   description: {
     width: '100%',
-    marginTop: 10,
+    marginTop: 0,
   },
   descriptionTitle: {
-    fontSize: 20,
+    fontSize: 10,
     fontWeight: 'bold',
     color: '#FFF',
     marginBottom: 12,
@@ -601,7 +630,7 @@ const styles = StyleSheet.create({
   },
   description: {
   width: '100%',
-  marginTop: 32,
+  marginTop: 10,
   paddingHorizontal:0,  // Padding around the text
 },
 descriptionTitle: {
