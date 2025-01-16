@@ -237,58 +237,19 @@ export default function ReadBookScreen() {
       setLoadingSummary(true);
       setShowSummary(true);
       
-      let textToSummarize = '';
+      let summaryResult;
       
       if (isPDF) {
-        try {
-          // Fetch PDF content
-          const response = await fetch(pdfUrl);
-          const pdfBuffer = await response.arrayBuffer();
-          
-          // Convert ArrayBuffer to Base64 in React Native
-          const bytes = new Uint8Array(pdfBuffer);
-          const len = bytes.byteLength;
-          let binary = '';
-          for (let i = 0; i < len; i++) {
-              binary += String.fromCharCode(bytes[i]);
-          }
-          const pdfBase64 = btoa(binary);
-          
-          // Call API to extract text from PDF
-          const extractResponse = await fetch('YOUR_PDF_EXTRACT_API_ENDPOINT', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              pdf: pdfBase64
-            })
-          });
-          
-          if (!extractResponse.ok) {
-            throw new Error('Failed to extract text from PDF');
-          }
-          
-          const { text } = await extractResponse.json();
-          textToSummarize = text;
-          
-        } catch (error) {
-          console.error('Error extracting PDF text:', error);
-          Alert.alert(
-            "Lỗi",
-            "Không thể trích xuất nội dung từ PDF. Vui lòng thử lại sau."
-          );
-          setLoadingSummary(false);
-          setShowSummary(false);
-          return;
-        }
+        // For PDF files, pass the URL directly and set isPdf flag to true
+        summaryResult = await generateSummary(pdfUrl, true);
       } else {
-        textToSummarize = bookContent.chapters
+        // For text content, concatenate chapters and process normally
+        const textToSummarize = bookContent.chapters
           .map(chapter => `${chapter.title}\n${chapter.content}`)
           .join('\n\n');
+        summaryResult = await generateSummary(textToSummarize, false);
       }
       
-      const summaryResult = await generateSummary(textToSummarize);
       setSummary(summaryResult);
     } catch (error) {
       console.error('Error generating summary:', error);
