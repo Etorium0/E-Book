@@ -85,38 +85,27 @@ export default function ReadBookScreen() {
         
         // Fetch và xử lý content
         for (let chapter of chaptersArray) {
-          if (chapter.content && chapter.content.startsWith('http')) {
-            try {
-              const headResponse = await fetch(chapter.content, { method: 'HEAD' });
-              const contentType = headResponse.headers.get('content-type');
-  
-              if (contentType?.includes('application/pdf')) {
-                setIsPDF(true);
-                setPdfUrl(chapter.content);
-                chapter.content = "Đang mở PDF viewer...";
-              } else {
-                const response = await fetch(chapter.content);
-                const text = await response.text();
-                
-                if (contentType?.includes('text/plain')) {
-                  chapter.content = decodeURIComponent(escape(text));
-                } else {
-                  try {
-                    const decoded = new TextDecoder('utf-8').decode(
-                      new TextEncoder().encode(text)
-                    );
-                    chapter.content = decoded;
-                  } catch {
-                    chapter.content = text;
-                  }
-                }
-              }
-            } catch (error) {
-              console.error('Error fetching chapter content:', error);
-              chapter.content = "Không thể tải nội dung chương này";
-            }
-          }
-        }
+  if (chapter.content && chapter.content.startsWith('http')) {
+    try {
+      const response = await fetch(chapter.content);
+      const contentType = response.headers.get('content-type');
+
+      if (contentType?.includes('text/plain') || chapter.content.endsWith('.txt')) {
+        const text = await response.text();
+        chapter.content = detectAndDecodeContent(text);
+      } else if (contentType?.includes('application/pdf')) {
+        setIsPDF(true);
+        setPdfUrl(chapter.content);
+        chapter.content = "Đang mở PDF viewer...";
+      } else {
+        chapter.content = "Không hỗ trợ định dạng này.";
+      }
+    } catch (error) {
+      console.error('Error fetching chapter content:', error);
+      chapter.content = "Không thể tải nội dung chương này";
+    }
+  }
+}
   
         setBookContent({
           title: bookData.name,
