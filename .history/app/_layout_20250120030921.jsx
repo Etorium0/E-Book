@@ -39,7 +39,7 @@ export default function Layout() {
             // Lấy tên route hiện tại
             const currentRoute = e.data.state.routes[e.data.state.index].name;
             // Danh sách các route cần ẩn bottom nav
-            const hideNavRoutes = ['BookScreen', 'ReadBookScreen', 'RatedBooks', 'Login', 'signUp','NewBooks', 'welcome', 'index', 'AddStoryScreen', 'WritingPage', 'SearchScreen', 'CategoryScreen'];
+            const hideNavRoutes = ['BookScreen', 'ReadBookScreen', 'Login', 'signUp','NewBooks', 'welcome', 'index', 'AddStoryScreen', 'WritingPage', 'SearchScreen', 'CategoryScreen'];
             // Set state hideNav dựa vào route hiện tại
             setHideNav(hideNavRoutes.includes(currentRoute));
           }

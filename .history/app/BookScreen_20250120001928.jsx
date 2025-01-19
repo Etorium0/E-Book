@@ -293,7 +293,7 @@ export default function BookScreen() {
     <ScrollView 
   style={styles.scrollView} 
   showsVerticalScrollIndicator={false}
-  contentContainerStyle={{ paddingBottom: 100 }} >
+  contentContainerStyle={{ paddingBottom: 20 }} >
         <SafeAreaView style={styles.header}>
           <BackButton style={styles.headerIcon} />
           <TouchableOpacity onPress={handleShare}>

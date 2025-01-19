@@ -69,7 +69,7 @@ const MovieCard = ({ item, handleClick, index, animationValue }) => {
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Đánh giá</Text>
-              <Text style={styles.statValue}>{item.rating || 0}⭐</Text>
+              <Text style={styles.statValue}>{item.totalrating || 0}⭐</Text>
             </View>
           </View>
         </View>
@@ -78,12 +78,7 @@ const MovieCard = ({ item, handleClick, index, animationValue }) => {
   );
 };
 
-const TrendingBooks = ({ handleClick }) => {
-  const [data, setData] = useState([]);
-  const animationValue = useSharedValue(0);
-
-  useEffect(() => {
-    const fetchTrendingBooks = async () => {
+const fetchTrendingBooks = async () => {
   try {
     const booksRef = ref(database, 'books');
     const snapshot = await get(booksRef);
@@ -95,7 +90,7 @@ const TrendingBooks = ({ handleClick }) => {
       }));
 
       // Lọc sách trending: Giả sử sách trending là những sách có lượt xem >= 100
-      const trendingBooks = books.filter(book => book.view >= 1000);
+      const trendingBooks = books.filter(book => book.view >= 100);
 
       // Sắp xếp sách theo lượt xem giảm dần (hoặc theo đánh giá)
       trendingBooks.sort((a, b) => b.view - a.view);
@@ -107,7 +102,6 @@ const TrendingBooks = ({ handleClick }) => {
   } catch (error) {
     console.error('Error fetching books:', error);
   }
-};
 
     fetchTrendingBooks();
   }, []);

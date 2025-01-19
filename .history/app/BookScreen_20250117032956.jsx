@@ -101,7 +101,7 @@ export default function BookScreen() {
     console.error("Lỗi khi lấy thông tin tác giả:", error);
   }
 };
-
+  
   const fetchDescription = async (fileUrl) => {
     try {
       const storage = getStorage();
@@ -163,7 +163,7 @@ export default function BookScreen() {
     }
 
     if (downloading) return;
-
+    
     try {
       setDownloading(true);
       await bookService.updateBook(params.id, {
@@ -290,10 +290,7 @@ export default function BookScreen() {
       />
       <View style={styles.gradientOverlay} />
 
-    <ScrollView 
-  style={styles.scrollView} 
-  showsVerticalScrollIndicator={false}
-  contentContainerStyle={{ paddingBottom: 100 }} >
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <SafeAreaView style={styles.header}>
           <BackButton style={styles.headerIcon} />
           <TouchableOpacity onPress={handleShare}>
@@ -433,11 +430,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1A1A1A',
   },
-  scrollView: {
-  flex: 1,
-  paddingBottom: 100, // Tạo thêm khoảng không ở dưới
-},
-
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -594,7 +586,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   categories: {
-    flexDirection: 'row',
+  flexDirection: 'row',
   flexWrap: 'wrap',
   justifyContent: 'flex-start',
   gap: 10,
@@ -664,4 +656,4 @@ showMoreText: {
     color: '#FFF',
     fontSize: 14,
   }
-  });
+});

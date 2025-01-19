@@ -69,7 +69,7 @@ const MovieCard = ({ item, handleClick, index, animationValue }) => {
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Đánh giá</Text>
-              <Text style={styles.statValue}>{item.rating || 0}⭐</Text>
+              <Text style={styles.statValue}>{item.totalrating || 0}⭐</Text>
             </View>
           </View>
         </View>
@@ -86,21 +86,14 @@ const TrendingBooks = ({ handleClick }) => {
     const fetchTrendingBooks = async () => {
   try {
     const booksRef = ref(database, 'books');
+    
     const snapshot = await get(booksRef);
-
     if (snapshot.exists()) {
       const books = Object.entries(snapshot.val()).map(([id, book]) => ({
-        id,
-        ...book,
+        id,   // Lấy id từ khóa của mỗi mục
+        ...book,  // Kết hợp dữ liệu sách
       }));
-
-      // Lọc sách trending: Giả sử sách trending là những sách có lượt xem >= 100
-      const trendingBooks = books.filter(book => book.view >= 1000);
-
-      // Sắp xếp sách theo lượt xem giảm dần (hoặc theo đánh giá)
-      trendingBooks.sort((a, b) => b.view - a.view);
-
-      setData(trendingBooks);  // Cập nhật dữ liệu trending sách
+      setData(books);
     } else {
       console.log('No trending books found');
     }

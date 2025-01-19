@@ -290,10 +290,7 @@ export default function BookScreen() {
       />
       <View style={styles.gradientOverlay} />
 
-    <ScrollView 
-  style={styles.scrollView} 
-  showsVerticalScrollIndicator={false}
-  contentContainerStyle={{ paddingBottom: 100 }} >
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <SafeAreaView style={styles.header}>
           <BackButton style={styles.headerIcon} />
           <TouchableOpacity onPress={handleShare}>
@@ -433,11 +430,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1A1A1A',
   },
-  scrollView: {
-  flex: 1,
-  paddingBottom: 100, // Tạo thêm khoảng không ở dưới
-},
-
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

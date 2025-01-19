@@ -8,7 +8,6 @@ import BookList from '../components/bookList';
 import UpcomingBooks from '../components/UpcomingBooks';
 import { useRouter } from 'expo-router';
 import { bookService } from '../backend/services/bookManagement';
-import TopRatedBooks from '../components/TopRatedBooks';
 
 const HomeScreens = () => {
   const [trending, setTrending] = useState([]);
@@ -123,7 +122,7 @@ const HomeScreens = () => {
 
         {/* TopRated Books */}
         {topRated.length > 0 ? (
-          <TopRatedBooks title="Sách Đánh Giá Cao" data={topRated} handleClick={handleClick} />
+          <BookList title="Sách Đánh Giá Cao" data={topRated} handleClick={handleClick} />
         ) : (
           <Text style={styles.noDataText}>Chưa có sách đánh giá cao</Text>
         )}

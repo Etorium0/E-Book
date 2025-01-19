@@ -24,8 +24,6 @@ export default function BookScreen() {
   const [authors, setAuthors] = useState([]);
   const [categories, setCategories] = useState([]);
 
-
-
   useEffect(() => {
     console.log("Book ID from params:", params.id);
     fetchBookDetails();
@@ -46,12 +44,11 @@ export default function BookScreen() {
             rating: bookData.rating || 0,
             categories: bookData.categories || [],
             descriptionFile: bookData.description,
-            authors: bookData.authors || [], // Assuming description is a file URL
+            authors: bookData.authors || [],
           };
           setBook(formattedBook);
           fetchAuthors(bookData.authors);
           fetchCategories(bookData.categories);
-          // Fetch description from Firebase Storage if exists
           if (bookData.description) {
             fetchDescription(bookData.description);
           }
@@ -63,44 +60,36 @@ export default function BookScreen() {
       setLoading(false);
     }
   };
+
   const fetchCategories = async (categoryIds) => {
-    console.log("Categories IDs:", categoryIds);
-  try {
-    const categoryList = [];
-    for (const categoryId in categoryIds) { // Nếu categoryIds là mảng
-      const category = await bookService.getCategoryById(categoryId);
-      console.log("Category fetched:", category);
-      if (category && category.data && category.data.name) {
-        categoryList.push(category.data);
-      } else {
-        console.log("Tên thể loại bị thiếu hoặc không tồn tại cho ID:", categoryId);
-      }
-    }
-    setCategories (categoryList);
-  } catch (error) {
-    console.error("Lỗi khi lấy thông tin thể loại:", error);
-  }
-};
-   const fetchAuthors = async (authorIds) => {
-  console.log("Author IDs:", authorIds);  // In ra authorIds để kiểm tra
-  try {
-    const authorList = [];
-    for (const authorId in authorIds) {
-      if (authorIds[authorId]) {
-        const author = await bookService.getAuthorById(authorId);
-        console.log("Author object:", author);  // Kiểm tra đối tượng tác giả
-        if (author && author.data && author.data.name) {  // Kiểm tra trường name trong data
-          authorList.push(author.data);  // Đảm bảo rằng bạn đang lấy đúng trường data
-        } else {
-          console.log("Tên tác giả bị thiếu cho ID:", authorId);
+    try {
+      const categoryList = [];
+      for (const categoryId of categoryIds) {
+        const category = await bookService.getCategoryById(categoryId);
+        if (category && category.data && category.data.name) {
+          categoryList.push(category.data);
         }
       }
+      setCategories(categoryList);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
     }
-    setAuthors(authorList);
-  } catch (error) {
-    console.error("Lỗi khi lấy thông tin tác giả:", error);
-  }
-};
+  };
+
+  const fetchAuthors = async (authorIds) => {
+    try {
+      const authorList = [];
+      for (const authorId of authorIds) {
+        const author = await bookService.getAuthorById(authorId);
+        if (author && author.data && author.data.name) {
+          authorList.push(author.data);
+        }
+      }
+      setAuthors(authorList);
+    } catch (error) {
+      console.error("Error fetching authors:", error);
+    }
+  };
 
   const fetchDescription = async (fileUrl) => {
     try {
@@ -116,32 +105,26 @@ export default function BookScreen() {
   };
 
   const toggleDescription = () => {
-  setIsExpanded(!isExpanded);
-};
-
+    setIsExpanded(!isExpanded);
+  };
 
   const handleFavorite = async () => {
     if (!auth.currentUser) {
-      Alert.alert(
-        "Thông báo",
-        "Bạn cần đăng nhập để thêm vào yêu thích",
-        [
-          { text: "Đăng nhập", onPress: () => router.push('/Login') },
-          { text: "Hủy", style: "cancel" }
-        ]
-      );
+      Alert.alert("Thông báo", "Bạn cần đăng nhập để thêm vào yêu thích", [
+        { text: "Đăng nhập", onPress: () => router.push('/Login') },
+        { text: "Hủy", style: "cancel" },
+      ]);
       return;
     }
-
     try {
       await bookService.updateBook(params.id, {
         favorite: !book?.favorite,
-        favoriteCount: (book?.favoriteCount || 0) + (book?.favorite ? -1 : 1)
+        favoriteCount: (book?.favoriteCount || 0) + (book?.favorite ? -1 : 1),
       });
-      setBook(prev => ({
+      setBook((prev) => ({
         ...prev,
         favorite: !prev.favorite,
-        favoriteCount: prev.favoriteCount + (prev.favorite ? -1 : 1)
+        favoriteCount: prev.favoriteCount + (prev.favorite ? -1 : 1),
       }));
     } catch (error) {
       console.error("Error updating favorite:", error);
@@ -151,14 +134,10 @@ export default function BookScreen() {
 
   const handleDownload = async () => {
     if (!auth.currentUser) {
-      Alert.alert(
-        "Thông báo",
-        "Bạn cần đăng nhập để tải sách",
-        [
-          { text: "Đăng nhập", onPress: () => router.push('/Login') },
-          { text: "Hủy", style: "cancel" }
-        ]
-      );
+      Alert.alert("Thông báo", "Bạn cần đăng nhập để tải sách", [
+        { text: "Đăng nhập", onPress: () => router.push('/Login') },
+        { text: "Hủy", style: "cancel" },
+      ]);
       return;
     }
 
@@ -167,11 +146,11 @@ export default function BookScreen() {
     try {
       setDownloading(true);
       await bookService.updateBook(params.id, {
-        downloads: (book?.downloads || 0) + 1
+        downloads: (book?.downloads || 0) + 1,
       });
-      setBook(prev => ({
+      setBook((prev) => ({
         ...prev,
-        downloads: (prev.downloads || 0) + 1
+        downloads: (prev.downloads || 0) + 1,
       }));
       Alert.alert("Thành công", "Sách đã được tải xuống");
     } catch (error) {
@@ -185,11 +164,11 @@ export default function BookScreen() {
   const handleShare = async () => {
     try {
       await bookService.updateBook(params.id, {
-        shares: (book?.shares || 0) + 1
+        shares: (book?.shares || 0) + 1,
       });
-      setBook(prev => ({
+      setBook((prev) => ({
         ...prev,
-        shares: (prev.shares || 0) + 1
+        shares: (prev.shares || 0) + 1,
       }));
       Alert.alert("Thành công", "Đã chia sẻ sách");
     } catch (error) {
@@ -199,67 +178,47 @@ export default function BookScreen() {
   };
 
   const handleReadBook = async () => {
-    // Kiểm tra user đã đăng nhập chưa
     if (!auth.currentUser) {
-      Alert.alert(
-        "Thông báo",
-        "Bạn cần đăng nhập để đọc sách",
-        [
-          { 
-            text: "Đăng nhập", 
-            onPress: () => router.push('/Login')
-          },
-          {
-            text: "Hủy",
-            style: "cancel"
-          }
-        ]
-      );
+      Alert.alert("Thông báo", "Bạn cần đăng nhập để đọc sách", [
+        { text: "Đăng nhập", onPress: () => router.push('/Login') },
+        { text: "Hủy", style: "cancel" },
+      ]);
       return;
     }
 
     setIsReadingLoading(true);
     try {
-      // Cập nhật lượt xem
       await bookService.updateBook(params.id, {
-        view: (book?.view || 0) + 1
+        view: (book?.view || 0) + 1,
       });
 
-      // Thêm sách vào trạng thái đang đọc
       const result = await readingService.addToReading(params.id);
       if (!result.success) {
-        Alert.alert(
-          "Lỗi",
-          "Không thể thêm sách vào danh sách đang đọc. Vui lòng thử lại sau.",
-          [{ text: "OK" }]
-        );
+        Alert.alert("Lỗi", "Không thể thêm sách vào danh sách đang đọc. Vui lòng thử lại sau.", [
+          { text: "OK" },
+        ]);
         return;
       }
 
-      // Cập nhật state book
-      setBook(prev => ({
+      setBook((prev) => ({
         ...prev,
         view: (prev?.view || 0) + 1,
-        lastRead: Date.now()
+        lastRead: Date.now(),
       }));
 
-      // Chuyển đến trang đọc sách
       router.push({
         pathname: "/ReadBookScreen",
         params: {
           id: params.id,
           title: book.name,
-          content: book.chapters.chapterId1.content
-        }
+          content: book.chapters.chapterId1.content,
+        },
       });
-
     } catch (error) {
       console.error("Lỗi khi bắt đầu đọc sách:", error);
-      Alert.alert(
-        "Lỗi",
-        "Đã có lỗi xảy ra khi truy cập sách. Vui lòng thử lại sau.",
-        [{ text: "OK" }]
-      );
+      Alert.alert("Lỗi", "Đã có lỗi xảy ra khi truy cập sách. Vui lòng thử lại sau.", [
+        { text: "OK" },
+      ]);
     } finally {
       setIsReadingLoading(false);
     }
@@ -283,161 +242,71 @@ export default function BookScreen() {
 
   return (
     <View style={styles.container}>
-      <Image 
-        source={{ uri: book.image }}
-        style={styles.backgroundImage}
-        blurRadius={5}
-      />
+      <Image source={{ uri: book.image }} style={styles.backgroundImage} blurRadius={5} />
       <View style={styles.gradientOverlay} />
 
-    <ScrollView 
-  style={styles.scrollView} 
-  showsVerticalScrollIndicator={false}
-  contentContainerStyle={{ paddingBottom: 100 }} >
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <SafeAreaView style={styles.header}>
           <BackButton style={styles.headerIcon} />
           <TouchableOpacity onPress={handleShare}>
-            <ShareIcon size={24} color="#FFF" style={styles.headerIcon} />
+            <ShareIcon size={24} color="#FFF" />
           </TouchableOpacity>
         </SafeAreaView>
 
-        <View style={styles.content}>
-          <Image 
-            source={{ uri: book.image }}
-            style={styles.coverImage}
-            resizeMode="contain"
-          />
+        <View style={styles.bookContent}>
+          <Image source={{ uri: book.image }} style={styles.bookImage} />
 
-          <View style={styles.detailsContainer}>
-            <Text style={styles.title}>{book.name}</Text>
-            <View style={styles.authorsContainer}>
-          <Text style={styles.authorsTitle}>Tác giả: {authors.length > 0 ? authors.map((author, index) => (
-      <Text key={index} style={styles.authorName}>
-        {author.name}{index < authors.length - 1 ? ", " : ""}
-      </Text>
-    )) : " Chưa có tác giả"}
-  </Text>
-</View>
+          <View style={styles.bookDetails}>
+            <Text style={styles.bookTitle}>{book.name}</Text>
+            <Text style={styles.bookSubTitle}>{book.subName}</Text>
 
-            <View style={styles.ratingSection}>
-              <View style={styles.stars}>
-                {[1,2,3,4,5].map((_, index) => (
-                  <StarIcon 
-                    key={index} 
-                    size={16} 
-                    color={index < Math.floor(book.rating || 0) ? "#FFD700" : "#666"}
-                  />
-                ))}
-              </View>
-              <Text style={styles.ratingText}>{book.rating?.toFixed(1) || "0.0"}</Text>
+            <View style={styles.ratingContainer}>
+              <StarIcon size={16} color="#FFC700" />
+              <Text style={styles.ratingText}>{book.rating}</Text>
             </View>
 
-            <View style={styles.statsContainer}>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{book.view || 0}</Text>
-                <Text style={styles.statLabel}>Lượt xem</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{book.downloads || 0}</Text>
-                <Text style={styles.statLabel}>Lượt tải</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{book.favoriteCount || 0}</Text>
-                <Text style={styles.statLabel}>Yêu thích</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity 
-              style={[
-                styles.readButton,
-                isReadingLoading && styles.readButtonDisabled
-              ]}
-              onPress={handleReadBook}
-              disabled={isReadingLoading}
-            >
-              <Text style={styles.readButtonText}>
-                {isReadingLoading ? "ĐANG XỬ LÝ..." : "ĐỌC SÁCH"}
+            <TouchableOpacity onPress={toggleDescription} style={styles.descriptionToggle}>
+              <Text style={styles.descriptionToggleText}>
+                {isExpanded ? "Thu gọn" : "Xem thêm"}
               </Text>
             </TouchableOpacity>
 
-            <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.iconButton} onPress={handleFavorite}>
-                <HeartIcon size={24} color={book.favorite ? "#FF0000" : "#FFF"} />
+            {isExpanded && <Text style={styles.description}>{description}</Text>}
+
+            <View style={styles.actions}>
+              <TouchableOpacity onPress={handleFavorite} style={styles.favoriteButton}>
+                <HeartIcon size={24} color={book.favorite ? "#F00" : "#FFF"} />
+                <Text style={styles.favoriteCount}>{book.favoriteCount}</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.iconButton, downloading && styles.iconButtonDisabled]}
-                onPress={handleDownload}
-                disabled={downloading}
-              >
+
+              <TouchableOpacity onPress={handleDownload} style={styles.downloadButton}>
                 <ArrowDownTrayIcon size={24} color="#FFF" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.iconButton}>
-                <EllipsisHorizontalIcon size={24} color="#FFF" />
+                <Text style={styles.downloadCount}>{book.downloads}</Text>
               </TouchableOpacity>
             </View>
-
-
-            <View style={styles.description}>
-  <Text style={styles.descriptionTitle}>Giới thiệu</Text>
-  <Text style={styles.descriptionText}>
-    {isExpanded 
-      ? description 
-      : `${description.slice(0, 200)}...`}
-    {description.length > 200 && (  // Show "Xem thêm" if the description is longer than 200 characters
-      <Text 
-        style={styles.showMoreText} 
-        onPress={toggleDescription}
-      >
-        {isExpanded ? " Thu gọn" : " Xem thêm"}
-      </Text>
-    )}
-  </Text>
-</View>     
- <View style={styles.categories}>
-  {categories.length > 0 ? (
-    categories.map((category, index) => (
-      <Text key={index} style={styles.categoryName}>
-        {category.name}
-        {index < categories.length - 1 ? " " : ""}
-      </Text>
-    ))
-  ) : (
-    <Text>Chưa có tác giả</Text>
-  )}
-</View>
-
-
-            {book.publishDate && (
-              <View style={styles.additionalInfo}>
-                <Text style={styles.infoLabel}>Ngày xuất bản:</Text>
-                <Text style={styles.infoValue}>
-                  {new Date(book.publishDate).toLocaleDateString('vi-VN')}
-                </Text>
-              </View>
-            )}
-            {book.publisher && (
-              <View style={styles.additionalInfo}>
-                <Text style={styles.infoLabel}>Nhà xuất bản:</Text>
-                <Text style={styles.infoValue}>{book.publisher}</Text>
-              </View>
-            )}
           </View>
+
+          <View style={styles.categoryContainer}>
+            {categories.map((category) => (
+              <Text key={category.id} style={styles.category}>{category.name}</Text>
+            ))}
+          </View>
+
+          <TouchableOpacity onPress={handleReadBook} style={styles.readButton}>
+            <Text style={styles.readButtonText}>
+              {isReadingLoading ? "Đang mở..." : "Đọc sách"}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1A1A1A',
   },
-  scrollView: {
-  flex: 1,
-  paddingBottom: 100, // Tạo thêm khoảng không ở dưới
-},
-
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -594,7 +463,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   categories: {
-    flexDirection: 'row',
+  flexDirection: 'row',
   flexWrap: 'wrap',
   justifyContent: 'flex-start',
   gap: 10,
@@ -664,4 +533,4 @@ showMoreText: {
     color: '#FFF',
     fontSize: 14,
   }
-  });
+});

@@ -69,7 +69,7 @@ const MovieCard = ({ item, handleClick, index, animationValue }) => {
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Đánh giá</Text>
-              <Text style={styles.statValue}>{item.rating || 0}⭐</Text>
+              <Text style={styles.statValue}>{item.totalrating || 0}⭐</Text>
             </View>
           </View>
         </View>

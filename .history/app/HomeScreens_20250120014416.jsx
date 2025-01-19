@@ -8,7 +8,7 @@ import BookList from '../components/bookList';
 import UpcomingBooks from '../components/UpcomingBooks';
 import { useRouter } from 'expo-router';
 import { bookService } from '../backend/services/bookManagement';
-import TopRatedBooks from '../components/TopRatedBooks';
+import TopRatedBooks from '../components/TopRateBooks';
 
 const HomeScreens = () => {
   const [trending, setTrending] = useState([]);
