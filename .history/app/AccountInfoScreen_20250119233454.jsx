@@ -25,8 +25,16 @@ const AccountInfoScreen = () => {
   const [uploading, setUploading] = useState(false);
   const navigation = useNavigation();
   const [imageUri, setImageUri] = useState(null);
-r
+
+  const checkPermission = async () => {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    alert('Permission to access media library is required!');
+  }
+};
+
   useEffect(() => {
+    checkPermission();
     const auth = getAuth();
     const currentUser = auth.currentUser;
 
@@ -64,6 +72,8 @@ r
     });
 
     if (!result.canceled) {
+      console.log(result.assets[0].uri);
+
       setImageUri(result.assets[0].uri);
       uploadImage(result.assets[0].uri); // Call uploadImage with the URI
     }
@@ -103,13 +113,13 @@ r
       console.log('Upload is ' + progress + '% done');
     },
     (error) => {
-      console.error('Upload failed:', error);
+      console.error('Upload failed:', error.message, error.code);
       setUploading(false);
     },
     async () => {
       try {
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        console.log('File available at', downloadURL);
+        console.log('File available at', downloadURL); // Log URL của ảnh tải lên
 
         // Lưu URL vào Realtime Database
         const auth = getAuth();
@@ -119,7 +129,7 @@ r
           const userId = currentUser.uid;
           const db = getDatabase();
           const userRef = ref(db, `users/${userId}`);
-
+          
           await update(userRef, { avatar: downloadURL });
           console.log('Avatar URL saved to Realtime Database');
         } else {
@@ -133,6 +143,7 @@ r
     }
   );
 };
+
 
   const onSubmit = () => {
     const auth = getAuth();

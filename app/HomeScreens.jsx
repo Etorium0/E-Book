@@ -57,7 +57,7 @@ const HomeScreens = () => {
         params: {
           id: item.id,
           title: item.name,  
-          author: item.authors,
+          author: item.author,
           description: item.description,
           imageUrl: item.image
         }

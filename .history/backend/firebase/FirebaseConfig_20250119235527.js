@@ -11,21 +11,34 @@ const firebaseConfig = {
   authDomain: "e-book-ccea4.firebaseapp.com",
   databaseURL: "https://e-book-ccea4-default-rtdb.firebaseio.com",
   projectId: "e-book-ccea4",
-  storageBucket: "e-book-ccea4.firebasestorage.app",  // Đảm bảo đúng URL này
+  storageBucket: "e-book-ccea4.firebasestorage.app",
   messagingSenderId: "537469765673",
   appId: "1:537469765673:web:115c2137faa23463323438",
   measurementId: "G-6HF712MFV0",
 };
 
+// Khởi tạo ứng dụng Firebase
 const app = initializeApp(firebaseConfig);
 
-// Khởi tạo Firebase Auth với AsyncStorage để lưu trữ trạng thái đăng nhập
+// Khởi tạo Firebase Auth với persistence sử dụng AsyncStorage
 const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(ReactNativeAsyncStorage), // Dùng AsyncStorage để lưu trạng thái xác thực
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage),
 });
 
-export const firestore = getFirestore(app);
-export const storage = getStorage(app);
-export const database = getDatabase(app);
-export { auth, signInWithEmailAndPassword };
-export const db = getDatabase(app);
+const firestore = getFirestore(app);
+const storage = getStorage(app);
+const database = getDatabase(app);
+
+// Export tất cả các đối tượng và phương thức liên quan đến Firebase
+export { 
+  auth, 
+  signInWithEmailAndPassword, 
+  firestore, 
+  storage, 
+  database, 
+  ref, 
+  get, 
+  set, 
+  update, 
+  remove 
+};

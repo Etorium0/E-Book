@@ -25,8 +25,16 @@ const AccountInfoScreen = () => {
   const [uploading, setUploading] = useState(false);
   const navigation = useNavigation();
   const [imageUri, setImageUri] = useState(null);
-r
+
+  const checkPermission = async () => {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    alert('Permission to access media library is required!');
+  }
+};
+
   useEffect(() => {
+    checkPermission();
     const auth = getAuth();
     const currentUser = auth.currentUser;
 
@@ -64,6 +72,8 @@ r
     });
 
     if (!result.canceled) {
+      console.log(result.assets[0].uri);
+
       setImageUri(result.assets[0].uri);
       uploadImage(result.assets[0].uri); // Call uploadImage with the URI
     }
@@ -97,42 +107,40 @@ r
   const uploadTask = uploadBytesResumable(storageReference, blob, metadata);
 
   uploadTask.on(
-    'state_changed',
-    (snapshot) => {
-      const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-      console.log('Upload is ' + progress + '% done');
-    },
-    (error) => {
-      console.error('Upload failed:', error);
-      setUploading(false);
-    },
-    async () => {
-      try {
-        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        console.log('File available at', downloadURL);
+  'state_changed',
+  (snapshot) => {
+    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+    console.log('Upload is ' + progress + '% done');
+  },
+  (error) => {
+    console.error('Upload failed:', error.message);
+    alert('Upload failed. Please try again.');
+    setUploading(false);
+  },
+  async () => {
+    try {
+      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+      console.log('File available at', downloadURL);
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
 
-        // Lưu URL vào Realtime Database
-        const auth = getAuth();
-        const currentUser = auth.currentUser;
-
-        if (currentUser) {
-          const userId = currentUser.uid;
-          const db = getDatabase();
-          const userRef = ref(db, `users/${userId}`);
-
-          await update(userRef, { avatar: downloadURL });
-          console.log('Avatar URL saved to Realtime Database');
-        } else {
-          console.error('User is not authenticated');
-        }
-      } catch (error) {
-        console.error('Failed to save URL to database:', error);
-      } finally {
-        setUploading(false);
+      if (currentUser) {
+        const userId = currentUser.uid;
+        const db = getDatabase();
+        const userRef = ref(db, `users/${userId}`);
+        
+        await update(userRef, { avatar: downloadURL });
+        console.log('Avatar URL saved to Realtime Database');
       }
+    } catch (error) {
+      console.error('Failed to save URL to database:', error);
+    } finally {
+      setUploading(false);
     }
-  );
+  }
+);
 };
+
 
   const onSubmit = () => {
     const auth = getAuth();

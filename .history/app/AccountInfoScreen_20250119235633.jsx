@@ -25,7 +25,7 @@ const AccountInfoScreen = () => {
   const [uploading, setUploading] = useState(false);
   const navigation = useNavigation();
   const [imageUri, setImageUri] = useState(null);
-r
+
   useEffect(() => {
     const auth = getAuth();
     const currentUser = auth.currentUser;

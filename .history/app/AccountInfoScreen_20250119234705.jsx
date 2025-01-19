@@ -15,7 +15,7 @@ import { getAuth } from 'firebase/auth';
 import Button from '../components/Button';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getDatabase, ref, get, update } from 'firebase/database'; // Đảm bảo chỉ khai báo một lần
 
 
@@ -25,8 +25,16 @@ const AccountInfoScreen = () => {
   const [uploading, setUploading] = useState(false);
   const navigation = useNavigation();
   const [imageUri, setImageUri] = useState(null);
-r
+
+  const checkPermission = async () => {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== 'granted') {
+    alert('Permission to access media library is required!');
+  }
+};
+
   useEffect(() => {
+    checkPermission();
     const auth = getAuth();
     const currentUser = auth.currentUser;
 
@@ -64,52 +72,75 @@ r
     });
 
     if (!result.canceled) {
+      console.log(result.assets[0].uri);
+
       setImageUri(result.assets[0].uri);
       uploadImage(result.assets[0].uri); // Call uploadImage with the URI
     }
   };
 
   const urlToBlob = (url) => {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.addEventListener('error', reject);
-      xhr.addEventListener('readystatechange', () => {
-        if (xhr.readyState === 4) {
-          resolve(xhr.response);
-        }
-      });
-      xhr.open('GET', url);
-      xhr.responseType = 'blob';
-      xhr.send();
+  return new Promise((resolve, reject) => {
+    console.log('Starting XMLHttpRequest for URL:', url); // Log URL đang được xử lý
+
+    const xhr = new XMLHttpRequest();
+    
+    // Log khi có lỗi xảy ra
+    xhr.addEventListener('error', (event) => {
+      console.error('XMLHttpRequest failed:', event); // Log thông báo lỗi của XMLHttpRequest
+      reject(new Error('Failed to fetch URL as blob'));
     });
-  };
+
+    // Log khi trạng thái thay đổi
+    xhr.addEventListener('readystatechange', () => {
+      console.log('XMLHttpRequest state changed:', xhr.readyState); // Log trạng thái của XMLHttpRequest
+
+      if (xhr.readyState === 4) {
+        if (xhr.status === 200) {
+          console.log('Request successful, blob created'); // Log khi yêu cầu thành công
+          resolve(xhr.response); // Trả về kết quả là blob
+        } else {
+          console.error('Request failed with status:', xhr.status); // Log mã trạng thái lỗi
+          reject(new Error(`Failed to fetch URL, status code: ${xhr.status}`)); // Thông báo lỗi
+        }
+      }
+    });
+
+    xhr.open('GET', url); // Gửi yêu cầu GET tới URL
+    xhr.responseType = 'blob'; // Thiết lập loại phản hồi là blob
+    xhr.send(); // Gửi yêu cầu
+  });
+};
 
   const uploadImage = async (uri) => {
   setUploading(true);
   const blob = await urlToBlob(uri);
+  console.log('Blob created successfully:', blob);
 
   const storage = getStorage();
   const storageReference = storageRef(storage, `avatar/${Date.now()}`);
+  console.log('Storage reference created:', storageReference);
+
   const metadata = {
     contentType: 'image/jpeg',
   };
 
-  const uploadTask = uploadBytesResumable(storageReference, blob, metadata);
+  const uploadTask = uploadBytes(storageReference, blob, metadata);
 
   uploadTask.on(
     'state_changed',
     (snapshot) => {
       const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-      console.log('Upload is ' + progress + '% done');
+      console.log('Upload progress: ' + progress + '%');
     },
     (error) => {
-      console.error('Upload failed:', error);
+      console.error('Upload failed with error:', error.message, error.code);
       setUploading(false);
     },
     async () => {
       try {
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        console.log('File available at', downloadURL);
+        console.log('File available at', downloadURL); // Log URL của ảnh tải lên
 
         // Lưu URL vào Realtime Database
         const auth = getAuth();
@@ -119,7 +150,7 @@ r
           const userId = currentUser.uid;
           const db = getDatabase();
           const userRef = ref(db, `users/${userId}`);
-
+          
           await update(userRef, { avatar: downloadURL });
           console.log('Avatar URL saved to Realtime Database');
         } else {
@@ -133,6 +164,7 @@ r
     }
   );
 };
+
 
   const onSubmit = () => {
     const auth = getAuth();

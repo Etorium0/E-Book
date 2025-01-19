@@ -20,22 +20,18 @@ import { getDatabase, ref, get, update } from 'firebase/database'; // Đảm b�
 
 
 const AccountInfoScreen = () => {
-  const [userData, setUserData] = useState(null);
+   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const navigation = useNavigation();
   const [imageUri, setImageUri] = useState(null);
-r
   useEffect(() => {
     const auth = getAuth();
     const currentUser = auth.currentUser;
-
     if (currentUser) {
       const userId = currentUser.uid;
-
       const db = getDatabase();
       const userRef = ref(db, `users/${userId}`);
-
       get(userRef)
         .then((snapshot) => {
           if (snapshot.exists()) {
@@ -54,7 +50,6 @@ r
       setLoading(false);
     }
   }, []);
-
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -62,13 +57,11 @@ r
       aspect: [1, 1],
       quality: 1,
     });
-
     if (!result.canceled) {
       setImageUri(result.assets[0].uri);
       uploadImage(result.assets[0].uri); // Call uploadImage with the URI
     }
   };
-
   const urlToBlob = (url) => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -87,15 +80,12 @@ r
   const uploadImage = async (uri) => {
   setUploading(true);
   const blob = await urlToBlob(uri);
-
   const storage = getStorage();
   const storageReference = storageRef(storage, `avatar/${Date.now()}`);
   const metadata = {
     contentType: 'image/jpeg',
   };
-
   const uploadTask = uploadBytesResumable(storageReference, blob, metadata);
-
   uploadTask.on(
     'state_changed',
     (snapshot) => {
@@ -110,16 +100,13 @@ r
       try {
         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
         console.log('File available at', downloadURL);
-
         // Lưu URL vào Realtime Database
         const auth = getAuth();
         const currentUser = auth.currentUser;
-
         if (currentUser) {
           const userId = currentUser.uid;
           const db = getDatabase();
           const userRef = ref(db, `users/${userId}`);
-
           await update(userRef, { avatar: downloadURL });
           console.log('Avatar URL saved to Realtime Database');
         } else {

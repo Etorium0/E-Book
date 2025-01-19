@@ -25,7 +25,7 @@ const AccountInfoScreen = () => {
   const [uploading, setUploading] = useState(false);
   const navigation = useNavigation();
   const [imageUri, setImageUri] = useState(null);
-r
+
   useEffect(() => {
     const auth = getAuth();
     const currentUser = auth.currentUser;
@@ -96,42 +96,42 @@ r
 
   const uploadTask = uploadBytesResumable(storageReference, blob, metadata);
 
-  uploadTask.on(
-    'state_changed',
-    (snapshot) => {
-      const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-      console.log('Upload is ' + progress + '% done');
-    },
-    (error) => {
-      console.error('Upload failed:', error);
-      setUploading(false);
-    },
-    async () => {
-      try {
-        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        console.log('File available at', downloadURL);
+ uploadTask.on(
+  'state_changed',
+  (snapshot) => {
+    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+    console.log('Upload is ' + progress + '% done');
+  },
+  (error) => {
+    console.error('Upload failed:', error.message, error.code);
+    setUploading(false);
+  },
+  async () => {
+    try {
+      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+      console.log('File available at', downloadURL); // In URL của ảnh tải lên
 
-        // Lưu URL vào Realtime Database
-        const auth = getAuth();
-        const currentUser = auth.currentUser;
+      // Lưu URL vào Realtime Database
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
 
-        if (currentUser) {
-          const userId = currentUser.uid;
-          const db = getDatabase();
-          const userRef = ref(db, `users/${userId}`);
-
-          await update(userRef, { avatar: downloadURL });
-          console.log('Avatar URL saved to Realtime Database');
-        } else {
-          console.error('User is not authenticated');
-        }
-      } catch (error) {
-        console.error('Failed to save URL to database:', error);
-      } finally {
-        setUploading(false);
+      if (currentUser) {
+        const userId = currentUser.uid;
+        const db = getDatabase();
+        const userRef = ref(db, `users/${userId}`);
+        
+        await update(userRef, { avatar: downloadURL });
+        console.log('Avatar URL saved to Realtime Database');
+      } else {
+        console.error('User is not authenticated');
       }
+    } catch (error) {
+      console.error('Failed to save URL to database:', error);
+    } finally {
+      setUploading(false);
     }
-  );
+  }
+);
 };
 
   const onSubmit = () => {

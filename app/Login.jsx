@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 40,
     paddingHorizontal: 16,
-    marginTop: 120,
+    marginTop: 200,
   },
   welcomeText: {
     fontSize: 30,

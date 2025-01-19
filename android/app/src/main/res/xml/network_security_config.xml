@@ -1,0 +1,3 @@
+<domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="true">*.*</domain>
+</domain-config>

@@ -11,7 +11,7 @@ const firebaseConfig = {
   authDomain: "e-book-ccea4.firebaseapp.com",
   databaseURL: "https://e-book-ccea4-default-rtdb.firebaseio.com",
   projectId: "e-book-ccea4",
-  storageBucket: "e-book-ccea4.firebasestorage.app",  // Đảm bảo đúng URL này
+  storageBucket: "e-book-ccea4.appspot.com",  // Đảm bảo đúng URL này
   messagingSenderId: "537469765673",
   appId: "1:537469765673:web:115c2137faa23463323438",
   measurementId: "G-6HF712MFV0",
