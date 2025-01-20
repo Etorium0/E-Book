@@ -7,11 +7,14 @@ import { database } from '../backend/firebase/FirebaseConfig';
 import { ref, get } from 'firebase/database';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router'; 
+import BackButton from '../components/BackButton';
+import { bookService } from '../backend/services/bookManagement';
+import { readingService } from '../backend/services/readingService';
 
 const {width, height} = Dimensions.get('window');
 const ios = Platform.OS == 'ios';
 
-import BackButton from '../components/BackButton';
+
 
 
 
@@ -64,12 +67,38 @@ const NewBooks = () => {
   }, []);
 
   const renderBook = ({ item }) => {
-    // Lấy tên tác giả
-    const authorNames = item.authors
-      ? Object.keys(item.authors).map(authorId => authors[authorId]?.name).filter(name => name)
-      : [];
+  // Lấy tên tác giả
+  const authorNames = item.authors
+    ? Object.keys(item.authors).map(authorId => authors[authorId]?.name).filter(name => name)
+    : [];
+
+  const handleBookClick = async () => {
+    try {
+      // Cập nhật lượt xem khi nhấn vào sách
+      // Giả sử bạn có một phương thức `updateBook` tương tự trong `HomeScreens`
+      await bookService.updateBook(item.id, {
+        view: (item.view || 0) + 1
+      });
+
+      // Điều hướng đến BookScreen với thông tin của sách
+      router.push({
+        pathname: '/BookScreen',
+        params: {
+          id: item.id,
+          title: item.name,  
+          author: authorNames.join(', '),
+          description: item.description,
+          imageUrl: item.image
+        }
+      });
+    } catch (error) {
+      console.error("Lỗi khi cập nhật lượt xem:", error);
+    }
+  };
+
 
     return (
+    <Pressable onPress={handleBookClick}>
       <View style={styles.bookContainer}>
         <Image
           source={item.image ? { uri: item.image } : require('../assets/images/books/3.png')}
@@ -89,9 +118,9 @@ const NewBooks = () => {
           </View>
         </View>
       </View>
-    );
-  };
-
+    </Pressable>
+  );
+};
   if (!data || data.length === 0) {
     return (
       <View style={styles.container}>
@@ -165,20 +194,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
   },
-  flatListContent: {
+   flatListContent: {
     paddingBottom: 16,
-    paddingHorizontal: 16, 
+    paddingHorizontal: 10, 
   },
   row: {
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',  // Căn trái
     marginBottom: 16,
   },
-  bookContainer: {
-    width: (width - 64) / 3, // Tính toán chiều rộng cho 3 cột
+   bookContainer: {
+    width: (width - 64) / 3,  // Giữ nguyên chiều rộng cho 3 cột
     backgroundColor: '#2A2A2A',
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 16,
+     marginLeft: 8,  // Khoảng cách giữa các sách theo chiều ngang
+    marginRight: 8,
   },
   bookImage: {
     width: '100%',

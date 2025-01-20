@@ -3,7 +3,7 @@ import { View, Text, Pressable, TouchableWithoutFeedback, ScrollView, Image, Dim
 import { database } from '../backend/firebase/FirebaseConfig'; // Import Firebase database
 import { ref, get } from 'firebase/database'; // Import Firebase SDK functions
 import { useRouter } from 'expo-router'; 
-import { Platform } from 'react-native';
+
 
 const { width, height } = Dimensions.get('window');
 const ios = Platform.OS == 'ios';

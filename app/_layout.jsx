@@ -58,6 +58,10 @@ export default function Layout() {
             presentation: 'modal'
           }}
         />
+        <Stack.Screen 
+          name="categories/[id]" 
+          options={{ headerShown: false }} 
+        />
         {/* Các Stack.Screen khác giữ nguyên */}
       </Stack>
       

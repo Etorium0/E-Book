@@ -10,86 +10,82 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router'; // Sử dụng useRouter từ expo-router
 import BackButton from '../components/BackButton';
 import { db } from '../backend/firebase/FirebaseConfig';
 import { ref, get } from 'firebase/database';
-import { useRouter } from 'expo-router'; 
 
 const { width, height } = Dimensions.get('window');
 
 const CategoryScreen = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter(); 
+  const router = useRouter(); // Khai báo router
 
   useEffect(() => {
     fetchCategories();
   }, []);
 
   const fetchCategories = async () => {
-  try {
-    const categoriesRef = ref(db, 'categories');
-    const snapshot = await get(categoriesRef);
-    
-    if (snapshot.exists()) {
-      const categoriesData = Object.entries(snapshot.val()).map(([key, value]) => ({
-        id: key,
-        name: value.name,
-        description: value.description,
-        bookcount: 0, // Khởi tạo bookcount là 0
-        keyword: value.keyword,
-        parentId: value.parentId || 0,
-        createdat: value.createdat,
-        updatedat: value.updatedat
-      }));
-
-      // Lấy danh sách sách từ Firebase
-      const booksRef = ref(db, 'books');
-      const booksSnapshot = await get(booksRef);
-
-      if (booksSnapshot.exists()) {
-        const booksData = booksSnapshot.val();
-        
-        // Chuyển đối tượng booksData thành mảng
-        const booksArray = Object.values(booksData);
-        
-        // Đếm số lượng sách cho từng thể loại
-        booksArray.forEach(book => {
-          const categoryIds = Object.keys(book.categories || {});
-          categoryIds.forEach(categoryId => {
-            const category = categoriesData.find(cat => cat.id === categoryId);
-            if (category) {
-              category.bookcount += 1; // Tăng số lượng sách cho thể loại này
-            }
-          });
-        });
-      }
-
-      // Lọc ra các categories có parentId = 0 (categories gốc)
-      const rootCategories = categoriesData.filter(cat => cat.parentId === 0);
+    try {
+      const categoriesRef = ref(db, 'categories');
+      const snapshot = await get(categoriesRef);
       
-      // Sắp xếp theo tên
-      rootCategories.sort((a, b) => a.name.localeCompare(b.name));
+      if (snapshot.exists()) {
+        const categoriesData = Object.entries(snapshot.val()).map(([key, value]) => ({
+          id: key,
+          name: value.name,
+          description: value.description,
+          bookcount: 0, // Khởi tạo bookcount là 0
+          keyword: value.keyword,
+          parentId: value.parentId || 0,
+          createdat: value.createdat,
+          updatedat: value.updatedat
+        }));
 
-      // Kiểm tra số lượng sách của mỗi thể loại
-      rootCategories.forEach(category => {
-        console.log(`Category: ${category.name}, Book Count: ${category.bookcount}`);
-      });
+        // Lấy danh sách sách từ Firebase
+        const booksRef = ref(db, 'books');
+        const booksSnapshot = await get(booksRef);
 
-      setCategories(rootCategories);
-    } else {
-      console.log("No categories data available");
-      setCategories([]);
+        if (booksSnapshot.exists()) {
+          const booksData = booksSnapshot.val();
+          
+          // Chuyển đối tượng booksData thành mảng
+          const booksArray = Object.values(booksData);
+          
+          // Đếm số lượng sách cho từng thể loại
+          booksArray.forEach(book => {
+            const categoryIds = Object.keys(book.categories || {});
+            categoryIds.forEach(categoryId => {
+              const category = categoriesData.find(cat => cat.id === categoryId);
+              if (category) {
+                category.bookcount += 1; // Tăng số lượng sách cho thể loại này
+              }
+            });
+          });
+        }
+
+        // Lọc ra các categories có parentId = 0 (categories gốc)
+        const rootCategories = categoriesData.filter(cat => cat.parentId === 0);
+        
+        // Sắp xếp theo tên
+        rootCategories.sort((a, b) => a.name.localeCompare(b.name));
+
+        setCategories(rootCategories);
+      } else {
+        console.log("No categories data available");
+        setCategories([]);
+      }
+    } catch (error) {
+      console.error('Error details:', error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error details:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleCategoryPress = (category) => {
-    router.push(`/categories/${category.id}`);
+    // Sử dụng router.push để điều hướng đến màn hình CategoryDetail
+    router.push(`/category/${category.id}?categoryName=${category.name}`);
   };
 
   if (loading) {
@@ -106,17 +102,13 @@ const CategoryScreen = () => {
 
       <View style={styles.header}>
         <View style={styles.headerContent}>
-           <BackButton onPress={() => router.back()} />
+          <BackButton onPress={() => router.back()} />
           <Text style={styles.headerTitle}>Thể loại</Text>
           <View style={{ width: 40 }} />
         </View>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={true}
-        scrollIndicatorInsets={{ right: 1 }}
-      >
+      <ScrollView style={styles.scrollView}>
         <View style={styles.categoriesContainer}>
           {categories.map((category) => (
             <TouchableOpacity

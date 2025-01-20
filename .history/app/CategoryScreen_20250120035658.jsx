@@ -17,10 +17,10 @@ import { useRouter } from 'expo-router';
 
 const { width, height } = Dimensions.get('window');
 
-const CategoryScreen = () => {
+const CategoryScreen = ()=> {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter(); 
+  const router = useRouter(); // Khai báo router
 
   useEffect(() => {
     fetchCategories();
@@ -89,7 +89,7 @@ const CategoryScreen = () => {
 };
 
   const handleCategoryPress = (category) => {
-    router.push(`/categories/${category.id}`);
+    router.push(`/category/${category.id}?categoryName=${category.name}`);
   };
 
   if (loading) {
@@ -106,7 +106,7 @@ const CategoryScreen = () => {
 
       <View style={styles.header}>
         <View style={styles.headerContent}>
-           <BackButton onPress={() => router.back()} />
+         <BackButton onPress={() => router.back()} />
           <Text style={styles.headerTitle}>Thể loại</Text>
           <View style={{ width: 40 }} />
         </View>

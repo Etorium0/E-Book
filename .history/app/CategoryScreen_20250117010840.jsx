@@ -13,14 +13,12 @@ import { StatusBar } from 'expo-status-bar';
 import BackButton from '../components/BackButton';
 import { db } from '../backend/firebase/FirebaseConfig';
 import { ref, get } from 'firebase/database';
-import { useRouter } from 'expo-router'; 
 
 const { width, height } = Dimensions.get('window');
 
-const CategoryScreen = () => {
+const CategoryScreen = ({ navigation }) => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const router = useRouter(); 
 
   useEffect(() => {
     fetchCategories();
@@ -89,7 +87,10 @@ const CategoryScreen = () => {
 };
 
   const handleCategoryPress = (category) => {
-    router.push(`/categories/${category.id}`);
+    navigation.navigate('CategoryDetail', {
+      categoryId: category.id,
+      categoryName: category.name
+    });
   };
 
   if (loading) {
@@ -106,7 +107,7 @@ const CategoryScreen = () => {
 
       <View style={styles.header}>
         <View style={styles.headerContent}>
-           <BackButton onPress={() => router.back()} />
+          <BackButton onPress={() => navigation.goBack()} />
           <Text style={styles.headerTitle}>Thể loại</Text>
           <View style={{ width: 40 }} />
         </View>
