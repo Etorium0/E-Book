@@ -77,7 +77,7 @@ const index = () => {
 
     // Navigate after animation
     setTimeout(() => {
-      router.push('HomeScreens');
+      router.push('HomeScreens')
     }, 500);
   };
 

@@ -5,8 +5,10 @@ import { StatusBar } from 'expo-status-bar';
 import { Bars3CenterLeftIcon, MagnifyingGlassIcon } from 'react-native-heroicons/outline';
 import TrendingBooks from '../components/TrendingBooks';
 import BookList from '../components/bookList';
+import UpcomingBooks from '../components/UpcomingBooks';
 import { useRouter } from 'expo-router';
 import { bookService } from '../backend/services/bookManagement';
+import TopRatedBooks from '../components/TopRatedBooks';
 
 const HomeScreens = () => {
   const [trending, setTrending] = useState([]);
@@ -57,7 +59,7 @@ const HomeScreens = () => {
         params: {
           id: item.id,
           title: item.name,  
-          author: item.authors,
+          author: item.author,
           description: item.description,
           imageUrl: item.image
         }
@@ -114,14 +116,14 @@ const HomeScreens = () => {
 
         {/* Upcoming Books */}
         {upcoming.length > 0 ? (
-          <BookList title="Sách Mới" data={upcoming} handleClick={handleClick} />
+          <UpcomingBooks title="Sách Mới" data={upcoming} handleClick={handleClick} />
         ) : (
           <Text style={styles.noDataText}>Chưa có sách mới</Text>
         )}
 
         {/* TopRated Books */}
         {topRated.length > 0 ? (
-          <BookList title="Sách Đánh Giá Cao" data={topRated} handleClick={handleClick} />
+          <TopRatedBooks title="Sách Đánh Giá Cao" data={topRated} handleClick={handleClick} />
         ) : (
           <Text style={styles.noDataText}>Chưa có sách đánh giá cao</Text>
         )}
