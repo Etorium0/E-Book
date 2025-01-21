@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,10 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  BackHandler
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -17,10 +21,19 @@ import * as ImagePicker from 'expo-image-picker';
 import { database, storage } from '../backend/firebase/FirebaseConfig';
 import { ref, get, update } from 'firebase/database';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import {
+  addChapter,
+  updateChapterContent,
+  getStoryDetails,
+  getChapterDetails,
+  updateStoryStatus,
+  loadChapterContent
+} from '../backend/services/storyHelpers';
 
 const WritingPage = () => {
   const router = useRouter();
   const { storyId } = useLocalSearchParams();
+  const contentInputRef = useRef(null);
   
   // State cho cài đặt hiển thị
   const [showSettings, setShowSettings] = useState(false);
@@ -35,8 +48,9 @@ const WritingPage = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [chapterId, setChapterId] = useState(null);
-  const [coverImage, setCoverImage] = useState(null);
+  const [storyDetails, setStoryDetails] = useState(null);
 
   const fonts = [
     { label: 'Mặc định', value: 'default' },
@@ -44,83 +58,114 @@ const WritingPage = () => {
     { label: 'Times New Roman', value: 'Times' },
   ];
 
-  // Tải dữ liệu chương truyện khi component được mount
+  // Xử lý back button
   useEffect(() => {
-    loadChapterData();
+    const handleBackPress = () => {
+      if (hasUnsavedChanges) {
+        Alert.alert(
+          'Thay đổi chưa được lưu',
+          'Bạn có muốn lưu thay đổi trước khi thoát không?',
+          [
+            {
+              text: 'Không lưu',
+              style: 'destructive',
+              onPress: () => router.back(),
+            },
+            {
+              text: 'Lưu',
+              onPress: async () => {
+                await saveChapter();
+                router.back();
+              },
+            },
+            {
+              text: 'Hủy',
+              style: 'cancel',
+            },
+          ]
+        );
+        return true;
+      }
+      return false;
+    };
+
+    BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    return () => {
+      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+    };
+  }, [hasUnsavedChanges]);
+
+  // Tải dữ liệu truyện và chương khi component được mount
+  useEffect(() => {
+    loadData();
   }, [storyId]);
 
-  // Hàm tải dữ liệu chương truyện
-  const loadChapterData = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const storyRef = ref(database, `books/${storyId}`);
-      const snapshot = await get(storyRef);
-      const storyData = snapshot.val();
-
-      if (!storyData) {
-        Alert.alert('Lỗi', 'Không tìm thấy truyện');
-        return;
-      }
-
-      // Lấy chương cuối cùng hoặc tạo chương mới
-      const chapters = storyData.chapters || {};
-      const lastChapter = Object.entries(chapters).pop();
       
-      if (lastChapter) {
-        const [id, data] = lastChapter;
-        setChapterId(id);
-        setTitle(data.name || '');
-        setContent(data.content || '');
-        setHistory([data.content || '']);
-      }
+      // Lấy thông tin truyện
+      const story = await getStoryDetails(storyId);
+      setStoryDetails(story);
 
-      setCoverImage(storyData.image);
+      // Kiểm tra xem có chương nào không
+      if (story.chapters) {
+        const chaptersArray = Object.entries(story.chapters);
+        if (chaptersArray.length > 0) {
+          const [lastChapterId, lastChapter] = chaptersArray[chaptersArray.length - 1];
+          setChapterId(lastChapterId);
+          setTitle(lastChapter.name || '');
+          
+          // Tải nội dung chương từ URL với UTF-8 encoding
+          if (lastChapter.content_url) {
+            const chapterContent = await loadChapterContent(lastChapter.content_url);
+            setContent(chapterContent);
+            setHistory([chapterContent]);
+          }
+        }
+      }
     } catch (error) {
       console.error('Lỗi khi tải dữ liệu:', error);
-      Alert.alert('Lỗi', 'Không thể tải dữ liệu chương truyện');
+      Alert.alert('Lỗi', 'Không thể tải dữ liệu truyện');
     } finally {
       setLoading(false);
     }
   };
 
-  // Hàm lưu nội dung chương
-  const saveChapter = async () => {
-    if (!title.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề chương');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const chapterData = {
-        name: title.trim(),
-        content: content.trim(),
-        updatedat: new Date().toISOString(),
-      };
-
-      if (chapterId) {
-        // Cập nhật chương hiện có
-        await update(ref(database, `books/${storyId}/chapters/${chapterId}`), chapterData);
-      } else {
-        // Tạo chương mới
-        const newChapterRef = push(ref(database, `books/${storyId}/chapters`));
-        await set(newChapterRef, {
-          ...chapterData,
-          createdat: new Date().toISOString(),
-          orderindex: 1,
-          view: 0,
-        });
-        setChapterId(newChapterRef.key);
-      }
-
-      Alert.alert('Thành công', 'Đã lưu chương truyện');
-    } catch (error) {
-      console.error('Lỗi khi lưu chương:', error);
-      Alert.alert('Lỗi', 'Không thể lưu chương truyện');
-    } finally {
-      setSaving(false);
+  // Xử lý thay đổi nội dung
+  const handleContentChange = (text) => {
+    setContent(text);
+    setHasUnsavedChanges(true);
+    
+    // Cập nhật lịch sử cho undo/redo
+    if (text !== history[currentIndex]) {
+      const newHistory = history.slice(0, currentIndex + 1);
+      newHistory.push(text);
+      setHistory(newHistory);
+      setCurrentIndex(newHistory.length - 1);
     }
   };
+
+  // Xử lý Undo/Redo
+  const handleUndo = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+      setContent(history[currentIndex - 1]);
+      setHasUnsavedChanges(true);
+    }
+  }, [currentIndex, history]);
+
+  const handleRedo = useCallback(() => {
+    if (currentIndex < history.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setContent(history[currentIndex + 1]);
+      setHasUnsavedChanges(true);
+    }
+  }, [currentIndex, history]);
+
+  // Tính toán khả năng Undo/Redo
+  const canUndo = currentIndex > 0;
+  const canRedo = currentIndex < history.length - 1;
 
   // Xử lý upload ảnh
   const handleImageUpload = async () => {
@@ -152,58 +197,83 @@ const WritingPage = () => {
     }
   };
 
-  // Xử lý thay đổi nội dung
-  const handleContentChange = (text) => {
-    setContent(text);
-    if (text !== history[currentIndex]) {
-      const newHistory = history.slice(0, currentIndex + 1);
-      newHistory.push(text);
-      setHistory(newHistory);
-      setCurrentIndex(newHistory.length - 1);
+  // Xử lý lưu chương
+  const saveChapter = async () => {
+    if (!title.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề chương');
+      return;
     }
-  };
 
-  // Xử lý Undo/Redo
-  const handleUndo = useCallback(() => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setContent(history[currentIndex - 1]);
-    }
-  }, [currentIndex, history]);
-
-  const handleRedo = useCallback(() => {
-    if (currentIndex < history.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setContent(history[currentIndex + 1]);
-    }
-  }, [currentIndex, history]);
-
-  // Kiểm tra khả năng Undo/Redo
-  const canUndo = currentIndex > 0;
-  const canRedo = currentIndex < history.length - 1;
-
-  // Xử lý đăng truyện
-  const handlePublish = async () => {
     try {
-      if (!content.trim() || !title.trim()) {
-        Alert.alert('Lỗi', 'Vui lòng điền đầy đủ tiêu đề và nội dung');
-        return;
+      setSaving(true);
+      
+      if (chapterId) {
+        // Cập nhật chương hiện có
+        await updateChapterContent(storyId, chapterId, content.trim());
+        await update(ref(database, `books/${storyId}/chapters/${chapterId}`), {
+          name: title.trim(),
+          updatedat: new Date().toISOString(),
+        });
+      } else {
+        // Tạo chương mới
+        const newChapterId = await addChapter(storyId, {
+          title: title.trim(),
+          content: content.trim()
+        });
+        setChapterId(newChapterId);
       }
 
-      setSaving(true);
-      await update(ref(database, `books/${storyId}`), {
-        status: 'pending',
-        updatedat: new Date().toISOString(),
-      });
-
-      Alert.alert('Thành công', 'Đã gửi truyện để duyệt');
-      router.back();
+      setHasUnsavedChanges(false);
+      Alert.alert('Thành công', 'Đã lưu chương truyện');
     } catch (error) {
-      console.error('Lỗi khi đăng truyện:', error);
-      Alert.alert('Lỗi', 'Không thể đăng truyện');
+      console.error('Lỗi khi lưu chương:', error);
+      Alert.alert('Lỗi', 'Không thể lưu chương truyện');
     } finally {
       setSaving(false);
     }
+  };
+
+  // Xử lý đăng truyện
+  const handlePublish = async () => {
+    // Kiểm tra nếu có thay đổi chưa lưu
+    if (hasUnsavedChanges) {
+      Alert.alert(
+        'Lưu ý',
+        'Bạn có thay đổi chưa được lưu. Vui lòng lưu trước khi đăng.',
+        [
+          { text: 'OK' }
+        ]
+      );
+      return;
+    }
+
+    // Xác nhận đăng truyện
+    Alert.alert(
+      'Xác nhận đăng truyện',
+      'Truyện của bạn sẽ được gửi để kiểm duyệt. Bạn có chắc chắn muốn đăng không?',
+      [
+        {
+          text: 'Hủy',
+          style: 'cancel',
+        },
+        {
+          text: 'Đăng',
+          onPress: async () => {
+            try {
+              setSaving(true);
+              await updateStoryStatus(storyId, 'pending');
+              Alert.alert('Thành công', 'Đã gửi truyện để duyệt');
+              router.back();
+            } catch (error) {
+              console.error('Lỗi khi đăng truyện:', error);
+              Alert.alert('Lỗi', 'Không thể đăng truyện');
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -222,7 +292,34 @@ const WritingPage = () => {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => {
+            if (hasUnsavedChanges) {
+              Alert.alert(
+                'Thay đổi chưa được lưu',
+                'Bạn có muốn lưu thay đổi trước khi thoát không?',
+                [
+                  {
+                    text: 'Không lưu',
+                    style: 'destructive',
+                    onPress: () => router.back(),
+                  },
+                  {
+                    text: 'Lưu',
+                    onPress: async () => {
+                      await saveChapter();
+                      router.back();
+                    },
+                  },
+                  {
+                    text: 'Hủy',
+                    style: 'cancel',
+                  },
+                ]
+              );
+            } else {
+              router.back();
+            }
+          }}
           disabled={saving}
         >
           <Ionicons name="arrow-back" size={24} color="white" />
@@ -239,42 +336,60 @@ const WritingPage = () => {
       </View>
 
       {/* Content */}
-      <View style={styles.content}>
-        <TouchableOpacity 
-          style={styles.mediaUpload}
-          onPress={handleImageUpload}
-          disabled={saving}
-        >
-          <Ionicons name="image-outline" size={24} color="#666" />
-          <Text style={styles.mediaText}>Nhấp để thêm ảnh</Text>
-        </TouchableOpacity>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.content}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      >
+        <ScrollView style={styles.scrollContent}>
+          <TouchableOpacity 
+            style={styles.mediaUpload}
+            onPress={handleImageUpload}
+            disabled={saving}
+          >
+            <Ionicons name="image-outline" size={24} color="#666" />
+            <Text style={styles.mediaText}>Nhấp để thêm ảnh</Text>
+          </TouchableOpacity>
 
-        <TextInput
-          style={[styles.titleInput, { fontSize: fontSize }]}
-          placeholder="Đặt tiêu đề cho chương truyện"
-          placeholderTextColor="#666"
-          value={title}
-          onChangeText={setTitle}
-          editable={!saving}
-        />
+          <TextInput
+            style={[styles.titleInput, { fontSize: fontSize }]}
+            placeholder="Đặt tiêu đề cho chương truyện"
+            placeholderTextColor="#666"
+            value={title}
+            onChangeText={(text) => {
+              setTitle(text);
+              setHasUnsavedChanges(true);
+            }}
+            editable={!saving}
+            autoCorrect={false}
+            textAlignVertical="top"
+            maxLength={200}
+            multiline={false}
+          />
 
-        <TextInput
-          style={[
-            styles.contentInput,
-            {
-              fontSize: fontSize,
-              lineHeight: fontSize * lineHeight,
-              fontFamily: fontFamily === 'default' ? undefined : fontFamily
-            }
-          ]}
-          placeholder="Nhấp vào đây để bắt đầu viết"
-          placeholderTextColor="#666"
-          multiline
-          value={content}
-          onChangeText={handleContentChange}
-          editable={!saving}
-        />
-      </View>
+          <TextInput
+            ref={contentInputRef}
+            style={[
+              styles.contentInput,
+              {
+                fontSize: fontSize,
+                lineHeight: fontSize * lineHeight,
+                fontFamily: fontFamily === 'default' ? undefined : fontFamily
+              }
+            ]}
+            placeholder="Nhấp vào đây để bắt đầu viết"
+            placeholderTextColor="#666"
+            multiline
+            value={content}
+            onChangeText={handleContentChange}
+            editable={!saving}
+            autoCorrect={false}
+            textAlignVertical="top"
+            blurOnSubmit={false}
+            scrollEnabled={true}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
@@ -284,14 +399,14 @@ const WritingPage = () => {
             onPress={handleUndo}
             disabled={!canUndo || saving}
           >
-            <Ionicons name="arrow-back" size={24} color={canUndo ? '#666' : '#333'} />
+            <Ionicons name="arrow-undo" size={24} color={canUndo ? '#666' : '#333'} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.navButton, !canRedo && styles.disabledButton]}
             onPress={handleRedo}
             disabled={!canRedo || saving}
           >
-            <Ionicons name="arrow-forward" size={24} color={canRedo ? '#666' : '#333'} />
+            <Ionicons name="arrow-redo" size={24} color={canRedo ? '#666' : '#333'} />
           </TouchableOpacity>
         </View>
         <View style={styles.navRight}>
@@ -404,7 +519,7 @@ const WritingPage = () => {
         </View>
       </Modal>
 
-      {/* Save state */}
+      {/* Loading Overlay */}
       {saving && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#FFA500" />
@@ -416,23 +531,27 @@ const WritingPage = () => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 12,
     flex: 1,
     backgroundColor: '#000',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
+    paddingTop: 30,
     backgroundColor: '#1A1A1A',
-  },
-  backButton: {
-    padding: 8,
   },
   headerTitle: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: '600',
   },
   publishButton: {
     color: '#FFA500',
@@ -441,6 +560,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 16,
   },
   mediaUpload: {
@@ -460,18 +581,22 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,
+    padding: 8,
   },
   contentInput: {
     flex: 1,
     color: 'white',
     fontSize: 16,
     textAlignVertical: 'top',
+    minHeight: 200,
+    padding: 8,
   },
   bottomNav: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 16,
     backgroundColor: '#1A1A1A',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
   },
   navLeft: {
     flexDirection: 'row',
@@ -502,6 +627,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
+    maxHeight: '80%',
   },
   modalTitle: {
     color: 'white',
@@ -545,6 +671,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+    justifyContent: 'center',
   },
   fontButton: {
     backgroundColor: '#333',
@@ -574,12 +701,6 @@ const styles = StyleSheet.create({
     color: 'black',
     fontSize: 16,
     fontWeight: '600',
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

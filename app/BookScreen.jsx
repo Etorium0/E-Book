@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, Dimensions, Platform, Image, 
 import React, { useState, useEffect } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { HeartIcon, ArrowDownTrayIcon, EllipsisHorizontalIcon, ShareIcon } from 'react-native-heroicons/outline';
+import { HeartIcon, ArrowDownTrayIcon, EllipsisHorizontalIcon, ShareIcon, SpeakerWaveIcon } from 'react-native-heroicons/outline';
 import { StarIcon } from 'react-native-heroicons/solid';
 import BackButton from '../components/BackButton';
 import { bookService } from '../backend/services/bookManagement';
@@ -119,6 +119,33 @@ export default function BookScreen() {
   setIsExpanded(!isExpanded);
 };
 
+const handleAudioBook = () => {
+  if (!auth.currentUser) {
+    Alert.alert(
+      "Thông báo",
+      "Bạn cần đăng nhập để nghe sách",
+      [
+        { 
+          text: "Đăng nhập", 
+          onPress: () => router.push('/Login')
+        },
+        {
+          text: "Hủy",
+          style: "cancel"
+        }
+      ]
+    );
+    return;
+  }
+
+  router.push({
+    pathname: "/AudioScreen",
+    params: {
+      id: params.id,
+      title: book.name
+    }
+  });
+};
 
   const handleFavorite = async () => {
     if (!auth.currentUser) {
@@ -344,18 +371,27 @@ export default function BookScreen() {
               </View>
             </View>
 
-            <TouchableOpacity 
-              style={[
-                styles.readButton,
-                isReadingLoading && styles.readButtonDisabled
-              ]}
-              onPress={handleReadBook}
-              disabled={isReadingLoading}
-            >
-              <Text style={styles.readButtonText}>
-                {isReadingLoading ? "ĐANG XỬ LÝ..." : "ĐỌC SÁCH"}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity 
+                style={[
+                  styles.readButton,
+                  isReadingLoading && styles.readButtonDisabled
+                ]}
+                onPress={handleReadBook}
+                disabled={isReadingLoading}
+              >
+                <Text style={styles.readButtonText}>
+                  {isReadingLoading ? "ĐANG XỬ LÝ..." : "ĐỌC SÁCH"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.audioButton}
+                onPress={handleAudioBook}
+              >
+                <SpeakerWaveIcon size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.actionButtons}>
               <TouchableOpacity style={styles.iconButton} onPress={handleFavorite}>
@@ -652,8 +688,29 @@ showMoreText: {
   textAlign: 'center',
   marginTop: 8, // Adjust space above the "Xem thêm" text
 },
-  infoValue: {
+buttonContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 10,
+  width: '100%',
+  marginTop: 10,
+},
+readButton: {
+  backgroundColor: '#A2B2FC',
+  flex: 1,
+  paddingVertical: 16,
+  borderRadius: 30,
+},
+audioButton: {
+  backgroundColor: '#A2B2FC',
+  padding: 16,
+  borderRadius: 30,
+  aspectRatio: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+infoValue: {
     color: '#FFF',
     fontSize: 14,
-  }
+}
 });

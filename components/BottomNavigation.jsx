@@ -57,7 +57,7 @@ const BottomNav = () => {
     { label: 'Profile', icon: 'person-outline', route: '/ProfileScreen' },
   ];
 
-  const hideOnRoutes = ['/Login', '/signUp', '/welcome', '/ReadBookScreen', '/index'];
+  const hideOnRoutes = ['/Login', '/signUp', '/welcome', '/ReadBookScreen', '/index', '/AudioScreen'];
   if (hideOnRoutes.includes(pathname)) {
     return null;
   }

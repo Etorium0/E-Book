@@ -41,6 +41,14 @@ const AddStoryScreen = () => {
     }
   };
 
+  const handleTitleChange = (text) => {
+    setTitle(text.replace(/[^\w\s\u0080-\uFFFF]/g, ''));
+  };
+
+  const handleDescriptionChange = (text) => {
+    setDescription(text.replace(/[^\w\s\u0080-\uFFFF]/g, ''));
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề truyện');
@@ -118,8 +126,16 @@ const AddStoryScreen = () => {
             placeholder="Tiêu Đề Truyện"
             placeholderTextColor="#666"
             value={title}
-            onChangeText={setTitle}
+            onChangeText={handleTitleChange}
             editable={!loading}
+            autoCorrect={false}
+            textAlignVertical="top"
+            maxLength={200}
+            multiline={false}
+            autoCapitalize="none"
+            contextMenuHidden={false}
+            spellCheck={false}
+            allowFontScaling={false}
           />
           <View style={styles.separator} />
         </View>
@@ -133,8 +149,16 @@ const AddStoryScreen = () => {
             multiline
             numberOfLines={4}
             value={description}
-            onChangeText={setDescription}
+            onChangeText={handleDescriptionChange}
             editable={!loading}
+            autoCorrect={false}
+            textAlignVertical="top"
+            blurOnSubmit={false}
+            maxLength={2000}
+            autoCapitalize="none"
+            contextMenuHidden={false}
+            spellCheck={false}
+            allowFontScaling={false}
           />
           <View style={styles.separator} />
         </View>
@@ -153,13 +177,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-    paddingTop: 40,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 50 : 10,
+    paddingTop: 30,
     paddingHorizontal: 16,
     paddingBottom: 10,
     backgroundColor: '#000',

@@ -134,7 +134,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1F1F1F',
-    paddingTop: 25,
   },
   centered: {
     justifyContent: 'center',
@@ -153,6 +152,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 16,
     paddingVertical: 10,
+    paddingTop: 10,
   },
   logoText: {
     color: 'white',
