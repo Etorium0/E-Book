@@ -3,12 +3,12 @@ import { useCallback, useState } from 'react';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { View, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import BottomNav from '../components/BottomNavigation';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function Layout() {
-  // Thêm state để kiểm soát việc ẩn/hiện bottom nav
   const [hideNav, setHideNav] = useState(false);
 
   const [fontsLoaded] = useFonts({
@@ -26,48 +26,58 @@ export default function Layout() {
   }
 
   return (
-    <View style={styles.container} onLayout={onLayoutRootView}>
-      <Stack
-        initialRouteName="index"
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: 'white' }
-        }}
-        // Thêm screenListeners để theo dõi thay đổi route
-        screenListeners={{
-          state: (e) => {
-            // Lấy tên route hiện tại
-            const currentRoute = e.data.state.routes[e.data.state.index].name;
-            // Danh sách các route cần ẩn bottom nav
-            const hideNavRoutes = ['BookScreen', 'ReadBookScreen', 'RatedBooks', 'Login', 'signUp','NewBooks', 'welcome', 'index', 'AddStoryScreen', 'WritingPage', 'SearchScreen', 'CategoryScreen'];
-            // Set state hideNav dựa vào route hiện tại
-            setHideNav(hideNavRoutes.includes(currentRoute));
-          }
-        }}
-      >
-        <Stack.Screen 
-          name="index"
-          options={{
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container} onLayout={onLayoutRootView}>
+        <Stack
+          initialRouteName="index"
+          screenOptions={{
             headerShown: false,
+            contentStyle: { backgroundColor: 'white' }
           }}
-        />
-        <Stack.Screen 
-          name="BookScreen"
-          options={{
-            headerShown: false,
-            presentation: 'modal'
+          screenListeners={{
+            state: (e) => {
+              const currentRoute = e.data.state.routes[e.data.state.index].name;
+              const hideNavRoutes = [
+                'BookScreen', 
+                'ReadBookScreen', 
+                'RatedBooks', 
+                'Login', 
+                'signUp',
+                'NewBooks', 
+                'welcome', 
+                'index', 
+                'AddStoryScreen', 
+                'WritingPage', 
+                'SearchScreen', 
+                'CategoryScreen'
+              ];
+              setHideNav(hideNavRoutes.includes(currentRoute));
+            }
           }}
-        />
-        <Stack.Screen 
-          name="categories/[id]" 
-          options={{ headerShown: false }} 
-        />
-        {/* Các Stack.Screen khác giữ nguyên */}
-      </Stack>
-      
-      {/* Chỉ hiện BottomNav khi hideNav = false */}
-      {!hideNav && <BottomNav />}
-    </View>
+        >
+          <Stack.Screen 
+            name="index"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen 
+            name="BookScreen"
+            options={{
+              headerShown: false,
+              presentation: 'modal'
+            }}
+          />
+          <Stack.Screen 
+            name="categories/[id]" 
+            options={{ headerShown: false }} 
+          />
+          {/* Các Stack.Screen khác giữ nguyên */}
+        </Stack>
+        
+        {!hideNav && <BottomNav />}
+      </View>
+    </GestureHandlerRootView>
   );
 }
 
