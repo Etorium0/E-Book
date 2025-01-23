@@ -1,9 +1,10 @@
-import { View, Text, ScrollView, TouchableOpacity, Dimensions, Platform, Image, StyleSheet, Alert } from 'react-native';
+import { View, Text, FlatList, ScrollView, TouchableOpacity, Dimensions, Platform, Image, StyleSheet, Alert } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeartIcon, ArrowDownTrayIcon, EllipsisHorizontalIcon, ShareIcon, SpeakerWaveIcon } from 'react-native-heroicons/outline';
 import { StarIcon } from 'react-native-heroicons/solid';
+import { ChevronRightIcon } from 'react-native-heroicons/solid';
 import BackButton from '../components/BackButton';
 import { bookService } from '../backend/services/bookManagement';
 import { readingService } from '../backend/services/readingService';
@@ -23,6 +24,7 @@ export default function BookScreen() {
   const [isReadingLoading, setIsReadingLoading] = useState(false);
   const [authors, setAuthors] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [chapters, setChapters] = useState([]);
 
 
 
@@ -51,6 +53,17 @@ export default function BookScreen() {
           setBook(formattedBook);
           fetchAuthors(bookData.authors);
           fetchCategories(bookData.categories);
+          if (bookData.chapters) {
+            const chapterList = Object.entries(bookData.chapters).map(([id, chapter]) => ({
+              id,
+              title: chapter.name,
+              content: chapter.content,
+              orderindex: chapter.orderindex,
+              view: chapter.view
+            })).sort((a, b) => a.orderindex - b.orderindex);
+            setChapters(chapterList);
+          }
+
           // Fetch description from Firebase Storage if exists
           if (bookData.description) {
             fetchDescription(bookData.description);
@@ -118,7 +131,62 @@ export default function BookScreen() {
   const toggleDescription = () => {
   setIsExpanded(!isExpanded);
 };
+const handleReadChapter = async (chapter) => {
+    if (!auth.currentUser) {
+      Alert.alert(
+        "Thông báo",
+        "Bạn cần đăng nhập để đọc sách",
+        [
+          { 
+            text: "Đăng nhập", 
+            onPress: () => router.push('/Login')
+          },
+          {
+            text: "Hủy",
+            style: "cancel"
+          }
+        ]
+      );
+      return;
+    }
 
+    try {
+      // Cập nhật lượt xem
+      await bookService.updateBook(params.id, {
+        view: (book?.view || 0) + 1
+      });
+
+      // Thêm sách vào trạng thái đang đọc
+      const result = await readingService.addToReading(params.id);
+      if (!result.success) {
+        Alert.alert(
+          "Lỗi",
+          "Không thể thêm sách vào danh sách đang đọc. Vui lòng thử lại sau.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
+      // Chuyển đến trang đọc sách
+      router.push({
+        pathname: "/ReadBookScreen",
+        params: {
+          id: params.id,
+          chapterId: chapter.id,
+          title: book.name,
+          chapterTitle: chapter.title,
+          chapterContent: chapter.content
+        }
+      });
+      } catch (error) {
+      console.error("Lỗi khi bắt đầu đọc sách:", error);
+      Alert.alert(
+        "Lỗi",
+        "Đã có lỗi xảy ra khi truy cập sách. Vui lòng thử lại sau.",
+        [{ text: "OK" }]
+      );
+    }
+  };
 const handleAudioBook = () => {
   if (!auth.currentUser) {
     Alert.alert(
@@ -291,6 +359,24 @@ const handleAudioBook = () => {
       setIsReadingLoading(false);
     }
   };
+  const renderChapterItem = ({ item }) => (
+    <TouchableOpacity 
+      style={styles.chapterItem} 
+      onPress={() => handleReadChapter(item)}
+    >
+      <View style={styles.chapterContent}>
+        <View style={styles.chapterInfo}>
+          <Text style={styles.chapterTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={styles.chapterViews}>
+            {item.view} lượt xem
+          </Text>
+        </View>
+        <ChevronRightIcon size={20} color="#999" />
+      </View>
+    </TouchableOpacity>
+  );
 
   if (loading) {
     return (
@@ -441,6 +527,16 @@ const handleAudioBook = () => {
     <Text>Chưa có tác giả</Text>
   )}
 </View>
+<View style={styles.chaptersSection}>
+      <Text style={styles.chaptersSectionTitle}>Danh sách chương</Text>
+      <ScrollView 
+        horizontal={false} 
+        nestedScrollEnabled={true}
+        style={styles.chaptersList}
+      >
+        {chapters.map(chapter => renderChapterItem({item: chapter}))}
+      </ScrollView>
+    </View>
 
 
             {book.publishDate && (
@@ -518,6 +614,50 @@ const styles = StyleSheet.create({
   },
   headerIcon: {
     padding: 8,
+  },
+  chaptersSection: {
+    marginTop: 20,
+    paddingHorizontal: 0,
+  },
+  chaptersSectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFF',
+    marginBottom: 15,
+  },
+  chaptersList: {
+    maxHeight: 200, // Limit height, add scrolling if more chapters
+  },
+  chapterItem: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 10,
+    width: 350,
+    marginBottom: 10,
+    padding: 15,
+    height: 50,
+    justifyContent: 'center'
+  },
+  chapterContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  chapterInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  chapterTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    flex: 1,
+    marginRight: 10,
+  },
+  chapterViews: {
+    color: '#999',
+    fontSize: 12,
+    marginLeft: 10,
   },
   content: {
     alignItems: 'center',
