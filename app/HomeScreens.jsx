@@ -26,16 +26,22 @@ const HomeScreens = () => {
   const fetchBooks = async () => {
     setRefreshing(true);
     try {
-      const trendingData = await bookService.getTrendingBooks(3);
+      // Fetch trending books, only get approved status
+      const trendingData = await bookService.getTrendingBooks(3, 'approved');
       setTrending(trendingData);
-
-      const upcomingData = await bookService.getUpcomingBooks(3);
+  
+      // Fetch upcoming books, only get approved status 
+      const upcomingData = await bookService.getUpcomingBooks(3, 'approved');
       setUpcoming(upcomingData);
-
-      const topRatedData = await bookService.getTopRatedBooks(3);
+  
+      // Fetch top-rated books, only get approved status
+      const topRatedData = await bookService.getTopRatedBooks(3, 'approved');
       setTopRated(topRatedData);
     } catch (error) {
       console.error("Error fetching books:", error);
+      setTrending([]);
+      setUpcoming([]);
+      setTopRated([]);
     } finally {
       setLoading(false);
       setRefreshing(false);

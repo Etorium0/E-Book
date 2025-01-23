@@ -25,7 +25,6 @@ import {
   addChapter,
   updateChapterContent,
   getStoryDetails,
-  getChapterDetails,
   updateStoryStatus,
   loadChapterContent
 } from '../backend/services/storyHelpers';
@@ -95,7 +94,6 @@ const WritingPage = () => {
     };
   }, [hasUnsavedChanges]);
 
-  // Tải dữ liệu truyện và chương khi component được mount
   useEffect(() => {
     loadData();
   }, [storyId]);
@@ -116,12 +114,10 @@ const WritingPage = () => {
           setChapterId(lastChapterId);
           setTitle(lastChapter.name || '');
           
-          // Tải nội dung chương từ URL với UTF-8 encoding
-          if (lastChapter.content_url) {
-            const chapterContent = await loadChapterContent(lastChapter.content_url);
-            setContent(chapterContent);
-            setHistory([chapterContent]);
-          }
+          // Tải nội dung chương
+          const chapterContent = await loadChapterContent(storyId, lastChapterId);
+          setContent(chapterContent);
+          setHistory([chapterContent]);
         }
       }
     } catch (error) {
@@ -132,12 +128,10 @@ const WritingPage = () => {
     }
   };
 
-  // Xử lý thay đổi nội dung
   const handleContentChange = (text) => {
     setContent(text);
     setHasUnsavedChanges(true);
     
-    // Cập nhật lịch sử cho undo/redo
     if (text !== history[currentIndex]) {
       const newHistory = history.slice(0, currentIndex + 1);
       newHistory.push(text);
@@ -146,7 +140,6 @@ const WritingPage = () => {
     }
   };
 
-  // Xử lý Undo/Redo
   const handleUndo = useCallback(() => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
@@ -163,11 +156,6 @@ const WritingPage = () => {
     }
   }, [currentIndex, history]);
 
-  // Tính toán khả năng Undo/Redo
-  const canUndo = currentIndex > 0;
-  const canRedo = currentIndex < history.length - 1;
-
-  // Xử lý upload ảnh
   const handleImageUpload = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -182,11 +170,10 @@ const WritingPage = () => {
         const response = await fetch(imageUri);
         const blob = await response.blob();
         
-        const imageRef = storageRef(storage, `chapters/${storyId}/${Date.now()}`);
+        const imageRef = storageRef(storage, `chapters/${storyId}/images/${Date.now()}`);
         await uploadBytes(imageRef, blob);
         const downloadUrl = await getDownloadURL(imageRef);
 
-        // Chèn URL ảnh vào nội dung
         const imageTag = `[image:${downloadUrl}]`;
         const newContent = `${content}\n${imageTag}\n`;
         handleContentChange(newContent);
@@ -197,7 +184,6 @@ const WritingPage = () => {
     }
   };
 
-  // Xử lý lưu chương
   const saveChapter = async () => {
     if (!title.trim()) {
       Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề chương');
@@ -208,14 +194,8 @@ const WritingPage = () => {
       setSaving(true);
       
       if (chapterId) {
-        // Cập nhật chương hiện có
-        await updateChapterContent(storyId, chapterId, content.trim());
-        await update(ref(database, `books/${storyId}/chapters/${chapterId}`), {
-          name: title.trim(),
-          updatedat: new Date().toISOString(),
-        });
+        await updateChapterContent(storyId, chapterId, content.trim(), title.trim());
       } else {
-        // Tạo chương mới
         const newChapterId = await addChapter(storyId, {
           title: title.trim(),
           content: content.trim()
@@ -233,21 +213,16 @@ const WritingPage = () => {
     }
   };
 
-  // Xử lý đăng truyện
   const handlePublish = async () => {
-    // Kiểm tra nếu có thay đổi chưa lưu
     if (hasUnsavedChanges) {
       Alert.alert(
         'Lưu ý',
         'Bạn có thay đổi chưa được lưu. Vui lòng lưu trước khi đăng.',
-        [
-          { text: 'OK' }
-        ]
+        [{ text: 'OK' }]
       );
       return;
     }
 
-    // Xác nhận đăng truyện
     Alert.alert(
       'Xác nhận đăng truyện',
       'Truyện của bạn sẽ được gửi để kiểm duyệt. Bạn có chắc chắn muốn đăng không?',
@@ -275,6 +250,10 @@ const WritingPage = () => {
       ]
     );
   };
+
+  // Tính toán khả năng Undo/Redo
+  const canUndo = currentIndex > 0;
+  const canRedo = currentIndex < history.length - 1;
 
   if (loading) {
     return (
@@ -445,8 +424,8 @@ const WritingPage = () => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Cài đặt hiển thị</Text>
             
-            {/* Font Size Settings */}
-            <View style={styles.settingSection}>
+{/* Font Size Settings */}
+<View style={styles.settingSection}>
               <Text style={styles.settingLabel}>Cỡ chữ</Text>
               <View style={styles.settingControls}>
                 <TouchableOpacity 

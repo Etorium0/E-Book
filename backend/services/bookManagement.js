@@ -18,7 +18,10 @@ export const bookService = {
       const snapshot = await get(booksRef);
       
       if (snapshot.exists()) {
-        return { success: true, data: snapshot.val() };
+        const approvedBooks = Object.fromEntries(
+          Object.entries(snapshot.val()).filter(([_, book]) => book.status === 'approved')
+        );
+        return { success: true, data: approvedBooks };
       } else {
         return { success: false, message: 'Không tìm thấy sách' };
       }
@@ -38,7 +41,8 @@ export const bookService = {
         view: 0,
         rating: 0,
         totalcomment: 0,
-        totalrating: 0
+        totalrating: 0,
+        status: bookData.status || 'approved' // Default to approved if no status provided
       };
 
       await set(bookRef, bookWithTimestamp);
@@ -54,30 +58,6 @@ export const bookService = {
     try {
       await update(bookRef, updatedData);
       return { success: true, message: 'Thông tin sách đã được cập nhật' };
-    } catch (error) {
-      return { success: false, message: error.message };
-    }
-  },
-async getCategoryById(categoryId) {
-    try {
-      const categoryRef = ref(db, `categories/${categoryId}`);
-      const snapshot = await get(categoryRef);
-
-      if (snapshot.exists()) {
-        return { success: true, data: snapshot.val() };
-      } else {
-        return { success: false, message: 'Không tìm thấy thể loại' };
-      }
-    } catch (error) {
-      return { success: false, message: error.message };
-    }
-  },
-  // Xóa sách
-  async deleteBook(bookId) {
-    const bookRef = ref(db, `books/${bookId}`);
-    try {
-      await remove(bookRef);
-      return { success: true, message: 'Sách đã được xóa' };
     } catch (error) {
       return { success: false, message: error.message };
     }
@@ -99,6 +79,9 @@ async getCategoryById(categoryId) {
       
       const books = [];
       snapshot.forEach((child) => {
+        // Only include approved books
+        if (child.val().status !== 'approved') return;
+        
         books.push({
           id: child.key,
           name: child.val().name,
@@ -122,20 +105,6 @@ async getCategoryById(categoryId) {
     }
   },
 
-  async getAuthorById(authorId) {
-    try {
-      const authorRef = ref(db, `authors/${authorId}`);
-      const snapshot = await get(authorRef);
-      
-      if (snapshot.exists()) {
-        return { success: true, data: snapshot.val() };
-      } else {
-        return { success: false, message: 'Không tìm thấy tác giả' };
-      }
-    } catch (error) {
-      return { success: false, message: error.message };
-    }
-  },
   // Lấy sách mới (theo thời gian tạo)
   async getUpcomingBooks(limit = 3) {
     try {
@@ -152,6 +121,9 @@ async getCategoryById(categoryId) {
 
       const books = [];
       snapshot.forEach((child) => {
+        // Only include approved books
+        if (child.val().status !== 'approved') return;
+        
         books.push({
           id: child.key,
           name: child.val().name,
@@ -191,6 +163,9 @@ async getCategoryById(categoryId) {
 
       const books = [];
       snapshot.forEach((child) => {
+        // Only include approved books
+        if (child.val().status !== 'approved') return;
+        
         books.push({
           id: child.key,
           name: child.val().name,
@@ -211,6 +186,47 @@ async getCategoryById(categoryId) {
     } catch (error) {
       console.error("Error fetching top rated books:", error);
       throw error;
+    }
+  },
+
+  async getCategoryById(categoryId) {
+    try {
+      const categoryRef = ref(db, `categories/${categoryId}`);
+      const snapshot = await get(categoryRef);
+
+      if (snapshot.exists()) {
+        return { success: true, data: snapshot.val() };
+      } else {
+        return { success: false, message: 'Không tìm thấy thể loại' };
+      }
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  },
+
+  async getAuthorById(authorId) {
+    try {
+      const authorRef = ref(db, `authors/${authorId}`);
+      const snapshot = await get(authorRef);
+      
+      if (snapshot.exists()) {
+        return { success: true, data: snapshot.val() };
+      } else {
+        return { success: false, message: 'Không tìm thấy tác giả' };
+      }
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  },
+
+  // Xóa sách
+  async deleteBook(bookId) {
+    const bookRef = ref(db, `books/${bookId}`);
+    try {
+      await remove(bookRef);
+      return { success: true, message: 'Sách đã được xóa' };
+    } catch (error) {
+      return { success: false, message: error.message };
     }
   }
 };
