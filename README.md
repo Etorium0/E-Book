@@ -1,50 +1,100 @@
-# Welcome to your Expo app 👋
+# 📚 E-Book App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Ứng dụng **E-Book** là một dự án mã nguồn mở xây dựng trên nền tảng React Native sử dụng Expo. Ứng dụng cung cấp trải nghiệm đọc sách điện tử hiện đại, đa nền tảng (Android, iOS, web), với các tính năng mở rộng như lưu trữ sách, đồng bộ dữ liệu, quản lý thư viện cá nhân, và hỗ trợ nhiều định dạng file.
 
-## Get started
+---
 
-1. Install dependencies
+## 🚀 Tính năng nổi bật
 
-   ```bash
-   npm install
-   ```
+- Đọc sách điện tử (PDF, v.v.) với giao diện tối ưu cho thiết bị di động.
+- Viết sách
+- Speech to text
+- Quản lý thư viện sách cá nhân, lưu trữ sách offline.
+- Đồng bộ dữ liệu người dùng với Firebase & Supabase.
+- Hỗ trợ đăng nhập, xác thực và lưu trạng thái đọc.
+- Tìm kiếm, đánh dấu trang, và ghi chú trong sách.
+- Giao diện đẹp, hiện đại.
 
-2. Start the app
+---
 
-   ```bash
+## 🛠️ Công nghệ sử dụng
+
+- **Expo & React Native**: Xây dựng ứng dụng mobile & web.
+- **Firebase & Supabase**: Lưu trữ dữ liệu, xác thực, đồng bộ.
+- **React Navigation**: Điều hướng giữa các màn hình.
+- **NativeWind & TailwindCSS**: Tối ưu giao diện, dễ dàng tuỳ chỉnh.
+- **react-native-pdf, react-native-blob-util**: Hiển thị và tải file PDF.
+- **Jest**: Viết unit test.
+
+---
+
+## 📦 Cài đặt & chạy thử
+
+1. **Cài đặt các package cần thiết**
+    ```bash
+    npm install
+    ```
+
+2. **Chạy ứng dụng**
+    ```bash
     npx expo start
-   ```
+    ```
+    Sau đó, bạn có thể chọn chạy trên:
+    - Thiết bị thật (qua Expo Go)
+    - Giả lập Android/iOS
+    - Trình duyệt web
 
-In the output, you'll find options to open the app in a
+3. **Reset project (nếu cần)**
+    ```bash
+    npm run reset-project
+    ```
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🗂 Cấu trúc thư mục
 
-## Get a fresh project
+- `/app`: Toàn bộ mã nguồn ứng dụng chính (giao diện, điều hướng, logic).
+- `/assets`: Tài nguyên tĩnh (icon, ảnh splash, v.v.).
+- `/scripts`: Script tiện ích cho phát triển (reset project, v.v.).
+- `package.json`: Quản lý dependencies và script.
+- `app.json`: Cấu hình Expo project.
 
-When you're ready, run:
+---
 
-```bash
-npm run reset-project
-```
+## 📖 Hướng dẫn phát triển
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+- **Thêm package mới:**  
+  Sử dụng `npm install <package-name>` và commit lại `package.json`, `package-lock.json`.
+- **Chạy test:**  
+  ```bash
+  npm test
+  ```
+- **Cấu hình môi trường:**  
+  Sử dụng các biến môi trường với Firebase/Supabase hoặc chỉnh sửa trong `app.json`.
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+## 🌐 Tham khảo & Tài liệu
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- [Expo Documentation](https://docs.expo.dev/)
+- [React Native](https://reactnative.dev/)
+- [Firebase](https://firebase.google.com/docs)
+- [Supabase](https://supabase.com/docs)
+- [react-native-pdf](https://github.com/wonday/react-native-pdf)
 
-## Join the community
+---
 
-Join our community of developers creating universal apps.
+## 🤝 Đóng góp
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Mọi đóng góp đều được chào đón!  
+Vui lòng tạo Pull Request hoặc Issue để thảo luận thêm.
+
+---
+
+## 📢 Liên hệ
+
+Nếu bạn có câu hỏi hoặc cần hỗ trợ, hãy mở Issue mới trên GitHub repo này!
+
+---
+
+**Made with ❤️ by [Etorium0](https://github.com/Etorium0)**
