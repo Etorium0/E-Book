@@ -24,8 +24,6 @@
 - **React Navigation**: Điều hướng giữa các màn hình.
 - **NativeWind & TailwindCSS**: Tối ưu giao diện, dễ dàng tuỳ chỉnh.
 - **react-native-pdf, react-native-blob-util**: Hiển thị và tải file PDF.
-- **Jest**: Viết unit test.
-
 ---
 
 ## 📦 Cài đặt & chạy thử
